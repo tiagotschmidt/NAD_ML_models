@@ -38,9 +38,9 @@ class Scaffold():
         X_test=np.asarray(target).astype(np.float32)
         return (X_train,X_test)
 
-    def save_model(self, model):
-        filepath = f"./models/json_models/mlp_{self.args.number_of_layers}_{self.args.number_of_neurons}_{self.args.number_of_epochs}_{self.args.number_of_features_removed}.json"
-        weightspath = f"./models/models_weights/mlp_{self.args.number_of_layers}_{self.args.number_of_neurons}_{self.args.number_of_epochs}_{self.args.number_of_features_removed}.weights.h5"
+    def save_model(self, model, model_name):
+        filepath = f"./models/json_models/{model_name}_{self.args.number_of_layers}_{self.args.number_of_neurons}_{self.args.number_of_epochs}_{self.args.number_of_features_removed}.json"
+        weightspath = f"./models/models_weights/{model_name}_{self.args.number_of_layers}_{self.args.number_of_neurons}_{self.args.number_of_epochs}_{self.args.number_of_features_removed}.weights.h5"
         if (not path.isfile(filepath)):
             mlp_json = model.to_json()
             with open(filepath, "w") as json_file:

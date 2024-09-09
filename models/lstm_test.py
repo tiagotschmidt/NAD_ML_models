@@ -11,12 +11,12 @@ def main():
     scaffold = Scaffold()
     args = scaffold.args
 
-    mlp = scaffold.load_model("mlp")
+    lstm = scaffold.load_model("lstm")
     (X_train,y_train) = scaffold.get_full_dataset()
-    mlp.compile(loss='binary_crossentropy', optimizer='adam', metrics=["accuracy","f1_score","precision", "recall"])
+    lstm.compile(loss='binary_crossentropy', optimizer='adam', metrics=["accuracy","f1_score","precision", "recall"])
 
     for i in range (0,100):
-        test_results = mlp.evaluate(X_train, y_train, verbose=1, return_dict=True)
+        test_results = lstm.evaluate(X_train, y_train, verbose=1, return_dict=True)
         print(test_results)
 
 if __name__ == '__main__':

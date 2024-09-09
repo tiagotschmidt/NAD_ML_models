@@ -30,10 +30,10 @@ def main():
 
     history = mlp.fit(X_train, y_train, epochs=args.number_of_epochs, batch_size=5000,validation_split=0.2)
 
-    scaffold.save_model(mlp)
+    scaffold.save_model(mlp,"mlp")
 
-    test_results = mlp.evaluate(X_test, y_test, verbose=1, return_dict=True)
-    print(test_results)
+###    test_results = mlp.evaluate(X_test, y_test, verbose=1, return_dict=True)
+###    print(test_results)
 
 if __name__ == '__main__':
     main()
