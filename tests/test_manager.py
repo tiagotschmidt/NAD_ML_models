@@ -1,4 +1,4 @@
-from ...data_structures.framework_parameters import (
+from ..framework_parameters import (
     FrameworkParameterType,
     LifecycleSelected,
     MLMode,
@@ -10,7 +10,7 @@ from ..manager import __generate_configurations_list
 
 def test_generate_configurations_list():
     # Test for OnlyTest mode
-    profile_mode = MLMode(LifecycleSelected.OnlyTest, test_platform=Platform.CPU)
+    profile_mode = MLMode(cycle=LifecycleSelected.OnlyTest, test_platform=Platform.CPU)
     configurations = __generate_configurations_list(
         numbers_of_layers=RangeParameter(
             1, 3, 1, FrameworkParameterType.NumberOfLayers

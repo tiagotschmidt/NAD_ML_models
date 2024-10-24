@@ -1,8 +1,12 @@
+from keras.models import Sequential
+import multiprocessing
 from typing import List
 import keras
 import pandas as pd
 
-from ..data_structures.framework_parameters import (
+from execution_engine import ExecutionEngine
+
+from framework_parameters import (
     ExecutionConfiguration,
     FrameworkParameterType,
     LifecycleSelected,
@@ -10,6 +14,7 @@ from ..data_structures.framework_parameters import (
     Platform,
     RangeParameter,
 )
+from logger import Logger
 
 
 def profile(
@@ -37,9 +42,7 @@ def profile(
         "precision",
         "recall",
     ],
-    dataset: pd.DataFrame = pd.read_csv(
-        "../legacy_repo/dataset/preprocessed_binary_dataset.csv"
-    ),
+    dataset: pd.DataFrame = pd.read_csv("dataset/preprocessed_binary_dataset.csv"),
 ):
     if not isinstance(user_model, keras.models.Model):
         raise TypeError("Input model must be a Keras model.")
@@ -52,18 +55,44 @@ def profile(
         profile_mode,
     )
 
+    start_engine_side, engine_manager_side = multiprocessing.Pipe()
+    start_logger_side, logger_manager_side = multiprocessing.Pipe()
+    logger_log_side, engine_log_side = multiprocessing.Pipe()
+
+    configurations_queue = multiprocessing.Queue()
+
+    engine = ExecutionEngine(
+        configurations_list,
+        number_of_samples,
+        batch_size,
+        performance_metrics_list,
+        dataset,
+        start_engine_side,
+        configurations_queue,
+        engine_log_side,
+    )
+
+    logger = Logger(start_logger_side, logger_log_side)
+
+    engine.start()
+    logger.start()
+
+    engine_manager_side.send(True)
+    logger_manager_side.send(True)
+
+    engine.join()
+    engine.join()
+
 
 def __generate_configurations_list(
     numbers_of_layers: RangeParameter,
     numbers_of_neurons: RangeParameter,
     numbers_of_epochs: RangeParameter,
     numbers_of_features: RangeParameter,
-    profile_mode: MLMode = MLMode(
-        LifecycleSelected.TrainAndTest, Platform.GPU, Platform.GPU
-    ),
+    profile_mode: MLMode,
 ) -> List[ExecutionConfiguration]:
     return_list = []
-    if profile_mode.cycle == LifecycleSelected.OnlyTest:
+    if profile_mode.cycle.value == LifecycleSelected.OnlyTest.value:
         for number_of_layers in numbers_of_layers:
             for number_of_neurons in numbers_of_neurons:
                 for number_of_epochs in numbers_of_epochs:
@@ -78,7 +107,7 @@ def __generate_configurations_list(
                                 profile_mode.cycle,
                             )
                         )
-    elif profile_mode.cycle == LifecycleSelected.OnlyTrain:
+    elif profile_mode.cycle.value == LifecycleSelected.OnlyTrain.value:
         for number_of_layers in numbers_of_layers:
             for number_of_neurons in numbers_of_neurons:
                 for number_of_epochs in numbers_of_epochs:
@@ -93,7 +122,7 @@ def __generate_configurations_list(
                                 profile_mode.cycle,
                             )
                         )
-    else:
+    elif profile_mode.cycle.value == LifecycleSelected.TrainAndTest.value:
         for number_of_layers in numbers_of_layers:
             for number_of_neurons in numbers_of_neurons:
                 for number_of_epochs in numbers_of_epochs:
@@ -124,3 +153,8 @@ def __generate_configurations_list(
                         )
 
     return return_list
+
+
+# print("eae")
+# cnn = Sequential()
+# profile(cnn)
