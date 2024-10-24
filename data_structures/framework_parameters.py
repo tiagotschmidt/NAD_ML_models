@@ -12,10 +12,9 @@ class RangeParameter:
         self.end=end
         self.stride=stride
         self.type=type
-        pass
 
     def __iter__(self):
-        for i in range(self.start,self.end,self.stride):
+        for i in range(self.start,self.end+1,self.stride):
             yield i
 
 class Platform(Enum):
@@ -27,12 +26,20 @@ class LifecycleSelected(Enum):
     OnlyTest = 1
     TrainAndTest = 2
 
-class Mode:
-    def __init__(self,cycle:LifecycleSelected, platform: Platform):
+class MLMode:
+    def __init__(self,cycle:LifecycleSelected, train_platform: Platform = None, test_platform: Platform = None):
         self.cycle=cycle
-        self.platform = platform
+        self.test_platform = test_platform
+        self.train_platform = train_platform
 
-
-a = Mode(LifecycleSelected.TrainAndTest,Platform.CPU)
+a = MLMode(LifecycleSelected.TrainAndTest,Platform.CPU)
         
 
+class ExecutionConfiguration:
+    def __init__(self, number_of_layers: int, number_of_neurons:int, number_of_epochs:int, number_of_features:int, platform: Platform, cycle: LifecycleSelected):
+        self.number_of_layers = number_of_layers
+        self.number_of_neurons = number_of_neurons
+        self.number_of_epochs = number_of_epochs
+        self.number_of_features = number_of_features
+        self.platform=platform
+        self.cycle=cycle
