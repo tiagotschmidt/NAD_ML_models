@@ -1,4 +1,9 @@
 from enum import Enum
+from multiprocessing.connection import Connection
+from typing import Callable, List
+
+import keras
+import pandas as pd
 
 
 class FrameworkParameterType(Enum):
@@ -57,15 +62,43 @@ class ExecutionConfiguration:
     def __init__(
         self,
         number_of_layers: int,
-        number_of_neurons: int,
+        number_of_units: int,
         number_of_epochs: int,
         number_of_features: int,
         platform: Platform,
         cycle: Lifecycle,
     ):
         self.number_of_layers = number_of_layers
-        self.number_of_neurons = number_of_neurons
+        self.number_of_units = number_of_units
         self.number_of_epochs = number_of_epochs
         self.number_of_features = number_of_features
         self.platform = platform
         self.cycle = cycle
+
+
+class EnviromentConfiguration:
+    def __init__(
+        self,
+        repeated_custom_layer_code: Callable[[keras.models.Model, int, int], None],
+        final_custom_layer_code: Callable[[keras.models.Model], None],
+        number_of_samples: int,
+        batch_size: int,
+        performance_metrics_list: List[str],
+        dataset: pd.DataFrame,
+        dataset_target_label: str,
+        loss_metric_str: str,
+        optimizer: str,
+        start_pipe: Connection,
+        log_pipe: Connection,
+    ):
+        self.repeated_custom_layer_code = (repeated_custom_layer_code,)
+        self.final_custom_layer_code = final_custom_layer_code
+        self.number_of_samples = number_of_samples
+        self.batch_size = batch_size
+        self.performance_metrics_list = performance_metrics_list
+        self.dataset = dataset
+        self.dataset_target_label = dataset_target_label
+        self.loss_metric_str = loss_metric_str
+        self.optimizer = optimizer
+        self.start_pipe = start_pipe
+        self.log_pipe = log_pipe

@@ -2,13 +2,14 @@ import multiprocessing
 from multiprocessing.connection import Connection
 from os import path
 from time import sleep
-from typing import List
+from typing import Callable, List
 import keras
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from framework_parameters import (
+    EnviromentConfiguration,
     ExecutionConfiguration,
     Lifecycle,
     Platform,
@@ -20,34 +21,16 @@ from keras.models import model_from_json  # saving and loading trained model
 class ExecutionEngine(multiprocessing.Process):
     def __init__(
         self,
+        configuration_list: List[ExecutionConfiguration],
         model: keras.models.Model,
         model_name: str,
-        repeat_layers_set: List[keras.layers.Layer],
-        configuration_list: List[ExecutionConfiguration],
-        number_of_samples: int,
-        batch_size: int,
-        performance_metrics_list: List[str],
-        dataset: pd.DataFrame,
-        dataset_target_label: str,
-        loss_metric_str: str,
-        optimizer: str,
-        start_pipe: Connection,
-        log_pipe: Connection,
+        environment: EnviromentConfiguration,
     ):
         super(ExecutionEngine, self).__init__()
         self.underlying_model = model
         self.model_name = model_name
-        self.repeat_layers = repeat_layers_set
         self.configuration_list = configuration_list
-        self.number_of_samples = number_of_samples
-        self.batch_size = batch_size
-        self.performance_metrics_list = performance_metrics_list
-        self.dataset = dataset
-        self.dataset_target_label = dataset_target_label
-        self.loss_metric_str = loss_metric_str
-        self.optimizer = optimizer
-        self.start_pipe = start_pipe
-        self.log_pipe = log_pipe
+        self.enviroment = environment
 
     def run(self):
         _ = (
@@ -57,56 +40,68 @@ class ExecutionEngine(multiprocessing.Process):
         self.test_results_list = []
 
         first_configuration = self.configuration_list[0]
-        current_platform = first_configuration.platform
 
         for configuration in self.configuration_list:
-            self.__load_model(configuration, X_train.shape[1])
-
             ## TODO: implement sampling rate via test and training proportion and via proportion of the dataset
-            X_train, y_train, X_test, y_test = self.__get_x_and_y(first_configuration)
+            X_train, y_train, X_test, y_test = self.__select_x_and_y_from_config(
+                configuration
+            )
+
+            self.__assemble_model_for_config(
+                configuration,
+                self.enviroment.repeated_custom_layer_code,
+                self.enviroment.final_custom_layer_code,
+                X_train.shape[1],
+            )
 
             self.underlying_model.compile(
-                loss=self.loss_metric_str,
-                optimizer=self.optimizer_str,
-                metrics=self.performance_metrics_list,
+                loss=self.enviroment.loss_metric_str,
+                optimizer=self.enviroment.optimizer,
+                metrics=self.enviroment.performance_metrics_list,
             )
 
             if configuration.platform.value == Platform.CPU:
                 with tf.device("/cpu:0"):
-                    self.log_pipe.send(ProcessSignal.Start)
-
-                    for i in range(0, self.number_of_samples - 1):
-                        test_results = self.__execute_configuration(
-                            configuration, X_train, y_train, X_test, y_test
-                        )
-                        self.test_results_list.append(test_results)
-
-                    self.log_pipe.send(ProcessSignal.Stop)
+                    self.__execution_routine(
+                        configuration, X_train, y_train, X_test, y_test
+                    )
             else:
                 with tf.device("/gpu:0"):
-                    self.log_pipe.send(ProcessSignal.Start)
+                    self.__execution_routine(
+                        configuration, X_train, y_train, X_test, y_test
+                    )
 
-                    for i in range(0, self.number_of_samples - 1):
-                        test_results = self.__execute_configuration(
-                            configuration, X_train, y_train, X_test, y_test
-                        )
-                        self.test_results_list.append(test_results)
-
-            self.log_pipe.send(ProcessSignal.Stop)
-
-            if (
-                self.configuration_list.index(configuration) == 0
-                and configuration.cycle.value == Lifecycle.Train
+            if self.__is_first_config(configuration) and self.__is_train_config(
+                configuration
             ):
-                self.__save_model(self.underlying_model, self.model_name)
+                self.__save_model_to_storage(self.underlying_model, self.model_name)
 
-    def __execute_configuration(self, configuration, X_train, y_train, X_test, y_test):
+    def __execution_routine(self, configuration, X_train, y_train, X_test, y_test):
+        self.log_pipe.send(ProcessSignal.Start)
+
+        for i in range(0, self.enviroment.number_of_samples - 1):
+            test_results = self.__execute_config(
+                configuration, X_train, y_train, X_test, y_test
+            )
+            self.test_results_list.append(test_results)
+
+        self.log_pipe.send(ProcessSignal.Stop)
+
+    def __is_train_config(self, configuration) -> bool:
+        return configuration.cycle.value == Lifecycle.Train
+
+    def __is_first_config(self, configuration) -> bool:
+        return self.configuration_list.index(configuration) == 0
+
+    def __execute_config(
+        self, configuration: ExecutionConfiguration, X_train, y_train, X_test, y_test
+    ) -> dict:
         if configuration.cycle.value == Lifecycle.Train:
             _ = self.underlying_model.fit(
                 X_train,
                 y_train,
                 epochs=configuration.number_of_epochs,
-                batch_size=self.batch_size,
+                batch_size=self.enviroment.batch_size,
                 validation_split=0.2,
             )
             test_results = self.underlying_model.evaluate(
@@ -119,9 +114,16 @@ class ExecutionEngine(multiprocessing.Process):
 
         return test_results
 
-    def __get_x_and_y(self, configuration: ExecutionConfiguration):
+    def __select_x_and_y_from_config(
+        self, configuration: ExecutionConfiguration
+    ) -> tuple[
+        np.NDArray[np.floating],
+        np.NDArray[np.floating],
+        np.NDArray[np.floating],
+        np.NDArray[np.floating],
+    ]:
         (X_train, y_train, X_test, y_test) = (
-            self.__convert_dataset_into_x_and_y(
+            self.__get_x_and_y(
                 self.dataset_target_label, configuration.number_of_features
             )
             if configuration.cycle.value == Lifecycle.Train
@@ -132,22 +134,28 @@ class ExecutionEngine(multiprocessing.Process):
 
         return X_train, y_train, X_test, y_test
 
-    def __load_model(self, configuration: ExecutionConfiguration, x_train_shape: int):
-        if configuration.cycle.value == Lifecycle.Train:
-            for i in range(0, configuration.number_of_layers):
-                for layer in self.repeat_layers:
-                    self.underlying_model.add(
-                        layer(
-                            units=configuration.number_of_neurons,
-                            input_shape=(x_train_shape, 1),
-                        )
-                    )
-        elif configuration.cycle.value == Lifecycle.Test:
-            self.underlying_model = self.__load_model(self.model_name)
-
-    def __convert_dataset_into_x_and_y(
-        self, target_label: str, number_of_features: int
+    def __assemble_model_for_config(
+        self,
+        configuration: ExecutionConfiguration,
+        x_train_shape: int,
     ):
+        if configuration.cycle.value == Lifecycle.Test:
+            sucess, returned_model = self.__try_load_model_from_storage(self.model_name)
+            if sucess:
+                self.underlying_model = returned_model
+                return
+        for i in range(0, configuration.number_of_layers):
+            self.enviroment.repeated_custom_layer_code(
+                self.underlying_model, configuration.number_of_units, x_train_shape
+            )
+        self.enviroment.final_custom_layer_code(self.underlying_model)
+
+    def __get_x_and_y(self, number_of_features: int) -> tuple[
+        np.NDArray[np.floating],
+        np.NDArray[np.floating],
+        np.NDArray[np.floating],
+        np.NDArray[np.floating],
+    ]:
         preprocessed_data = self.dataset
 
         original_number_of_features = preprocessed_data.shape[1] - 1
@@ -158,7 +166,7 @@ class ExecutionEngine(multiprocessing.Process):
         )
 
         features = preprocessed_data.iloc[:, 0:current_number_of_features].values
-        target = preprocessed_data[[target_label]].values
+        target = preprocessed_data[[self.enviroment.dataset_target_label]].values
 
         X_train, X_test, y_train, y_test = train_test_split(
             features, target, test_size=0.2, random_state=42
@@ -167,7 +175,12 @@ class ExecutionEngine(multiprocessing.Process):
         X_test = np.asarray(X_test).astype(np.float32)
         return (X_train, y_train, X_test, y_test)
 
-    def __get_full_dataset(self, target_label: str, number_of_features: int):
+    def __get_full_dataset(self, number_of_features: int) -> tuple[
+        np.NDArray[np.floating],
+        np.NDArray[np.floating],
+        np.NDArray[np.floating],
+        np.NDArray[np.floating],
+    ]:
         preprocessed_data = self.dataset
 
         original_number_of_features = preprocessed_data.shape[1] - 1
@@ -178,28 +191,37 @@ class ExecutionEngine(multiprocessing.Process):
         )
 
         features = preprocessed_data.iloc[:, 0:current_number_of_features].values
-        target = preprocessed_data[[target_label]].values
+        target = preprocessed_data[[self.enviroment.dataset_target_label]].values
 
         X_test = np.asarray(features).astype(np.float32)
         Y_test = np.asarray(target).astype(np.float32)
         return ([], [], X_test, Y_test)
 
-    def __load_model(self, model_name: str):
-        filepath = f"./models/json_models/{model_name}_{self.args.number_of_layers}_{self.args.number_of_neurons}_{self.args.number_of_epochs}_{self.args.number_of_features_removed}.json"
-        weightspath = f"./models/models_weights/{model_name}_{self.args.number_of_layers}_{self.args.number_of_neurons}_{self.args.number_of_epochs}_{self.args.number_of_features_removed}.weights.h5"
-        json_file = open(filepath, "r")
-        loaded_model_json = json_file.read()
-        json_file.close()
-        model = model_from_json(loaded_model_json)
-        model.load_weights(weightspath)
-        return model
+    def __try_load_model_from_storage(
+        self,
+        configuration: ExecutionConfiguration,
+    ) -> bool:
+        filepath = f"./models/json_models/{self.model_name}_{configuration.number_of_layers}_{configuration.number_of_units}_{configuration.number_of_epochs}_{configuration.number_of_features}.json"
+        weightspath = f"./models/models_weights/{self.model_name}_{configuration.number_of_layers}_{configuration.number_of_units}_{configuration.number_of_epochs}_{configuration.number_of_features}.weights.h5"
 
-    def __save_model(self, model, model_name):
-        filepath = f"./models/json_models/{model_name}_{self.args.number_of_layers}_{self.args.number_of_neurons}_{self.args.number_of_epochs}_{self.args.number_of_features_removed}.json"
-        weightspath = f"./models/models_weights/{model_name}_{self.args.number_of_layers}_{self.args.number_of_neurons}_{self.args.number_of_epochs}_{self.args.number_of_features_removed}.weights.h5"
+        try:
+            with open(filepath, "r") as json_file:
+                loaded_model_json = json_file.read()
+                self.underlying_model = model_from_json(loaded_model_json)
+                self.underlying_model.load_weights(weightspath)
+                return True
+        except (FileNotFoundError, IOError, ValueError) as e:
+            return False
+
+    def __save_model_to_storage(
+        self,
+        configuration: ExecutionConfiguration,
+    ):
+        filepath = f"./models/json_models/{self.enviroment.model_name}_{configuration.number_of_layers}_{configuration.number_of_units}_{configuration.number_of_epochs}_{configuration.number_of_features}.json"
+        weightspath = f"./models/models_weights/{self.enviroment.model_name}_{configuration.number_of_layers}_{configuration.number_of_units}_{configuration.number_of_epochs}_{configuration.number_of_features}.weights.h5"
         if not path.isfile(filepath):
-            mlp_json = model.to_json()
+            model_json = self.underlying_model.to_json()
             with open(filepath, "w") as json_file:
-                json_file.write(mlp_json)
+                json_file.write(model_json)
 
-            model.save_weights(weightspath)
+            self.underlying_model.save_weights(weightspath)

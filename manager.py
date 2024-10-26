@@ -1,12 +1,13 @@
 from keras.models import Sequential
 import multiprocessing
-from typing import List
+from typing import Callable, List
 import keras
 import pandas as pd
 
 from execution_engine import ExecutionEngine
 
 from framework_parameters import (
+    EnviromentConfiguration,
     ExecutionConfiguration,
     FrameworkParameterType,
     Lifecycle,
@@ -20,6 +21,9 @@ from logger import Logger
 
 def profile(
     user_model: keras.models.Model,
+    user_model_name: str,
+    repeated_custom_layer_code: Callable[[keras.models.Model, int, int], None],
+    final_custom_layer_code: Callable[[keras.models.Model], None],
     numbers_of_layers: RangeParameter = RangeParameter(
         100, 300, 100, FrameworkParameterType.NumberOfLayers
     ),
@@ -47,6 +51,8 @@ def profile(
         "dataset/preprocessed_binary_dataset.csv"
     ),
     dataset_target_label: str = "intrusion",
+    loss_metric_str: str = "binary_crossentropy",
+    optimizer: str = "adam",
 ):
     if not isinstance(user_model, keras.models.Model):
         raise TypeError("Input model must be a Keras model.")
@@ -59,20 +65,29 @@ def profile(
         profile_mode,
     )
 
-    start_pipe_engine_side, start_engine_pipe_manager_side = multiprocessing.Pipe()
-    start_pipe_logger_side, start_logger_pipe_manager_side = multiprocessing.Pipe()
-    log_pipe_logger_side, log_pipe_engine_side = multiprocessing.Pipe()
-
-    engine = ExecutionEngine(
-        user_model,
-        configurations_list,
+    environment = EnviromentConfiguration(
+        repeated_custom_layer_code,
+        final_custom_layer_code,
         number_of_samples,
         batch_size,
         performance_metrics_list,
         preprocessed_dataset,
         dataset_target_label,
+        loss_metric_str,
+        optimizer,
         start_pipe_engine_side,
         log_pipe_engine_side,
+    )
+
+    start_pipe_engine_side, start_engine_pipe_manager_side = multiprocessing.Pipe()
+    start_pipe_logger_side, start_logger_pipe_manager_side = multiprocessing.Pipe()
+    log_pipe_logger_side, log_pipe_engine_side = multiprocessing.Pipe()
+
+    engine = ExecutionEngine(
+        configurations_list,
+        user_model,
+        user_model_name,
+        environment,
     )
 
     logger = Logger(start_pipe_logger_side, log_pipe_logger_side)
