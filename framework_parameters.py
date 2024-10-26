@@ -30,6 +30,11 @@ class Platform(Enum):
     GPU = 1
 
 
+class Lifecycle(Enum):
+    Train = 0
+    Test = 1
+
+
 class LifecycleSelected(Enum):
     OnlyTrain = 0
     OnlyTest = 1
@@ -56,7 +61,7 @@ class ExecutionConfiguration:
         number_of_epochs: int,
         number_of_features: int,
         platform: Platform,
-        cycle: LifecycleSelected,
+        cycle: Lifecycle,
     ):
         self.number_of_layers = number_of_layers
         self.number_of_neurons = number_of_neurons

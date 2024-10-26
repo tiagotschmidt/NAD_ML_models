@@ -9,6 +9,7 @@ from execution_engine import ExecutionEngine
 from framework_parameters import (
     ExecutionConfiguration,
     FrameworkParameterType,
+    Lifecycle,
     LifecycleSelected,
     MLMode,
     Platform,
@@ -42,7 +43,10 @@ def profile(
         "precision",
         "recall",
     ],
-    dataset: pd.DataFrame = pd.read_csv("dataset/preprocessed_binary_dataset.csv"),
+    preprocessed_dataset: pd.DataFrame = pd.read_csv(
+        "dataset/preprocessed_binary_dataset.csv"
+    ),
+    dataset_target_label: str = "intrusion",
 ):
     if not isinstance(user_model, keras.models.Model):
         raise TypeError("Input model must be a Keras model.")
@@ -55,30 +59,29 @@ def profile(
         profile_mode,
     )
 
-    start_engine_side, engine_manager_side = multiprocessing.Pipe()
-    start_logger_side, logger_manager_side = multiprocessing.Pipe()
-    logger_log_side, engine_log_side = multiprocessing.Pipe()
-
-    configurations_queue = multiprocessing.Queue()
+    start_pipe_engine_side, start_engine_pipe_manager_side = multiprocessing.Pipe()
+    start_pipe_logger_side, start_logger_pipe_manager_side = multiprocessing.Pipe()
+    log_pipe_logger_side, log_pipe_engine_side = multiprocessing.Pipe()
 
     engine = ExecutionEngine(
+        user_model,
         configurations_list,
         number_of_samples,
         batch_size,
         performance_metrics_list,
-        dataset,
-        start_engine_side,
-        configurations_queue,
-        engine_log_side,
+        preprocessed_dataset,
+        dataset_target_label,
+        start_pipe_engine_side,
+        log_pipe_engine_side,
     )
 
-    logger = Logger(start_logger_side, logger_log_side)
+    logger = Logger(start_pipe_logger_side, log_pipe_logger_side)
 
     engine.start()
     logger.start()
 
-    engine_manager_side.send(True)
-    logger_manager_side.send(True)
+    start_engine_pipe_manager_side.send(True)
+    start_logger_pipe_manager_side.send(True)
 
     engine.join()
     engine.join()
@@ -104,7 +107,7 @@ def __generate_configurations_list(
                                 number_of_epochs,
                                 number_of_features,
                                 profile_mode.test_platform,
-                                profile_mode.cycle,
+                                Lifecycle.Test,
                             )
                         )
     elif profile_mode.cycle.value == LifecycleSelected.OnlyTrain.value:
@@ -119,7 +122,7 @@ def __generate_configurations_list(
                                 number_of_epochs,
                                 number_of_features,
                                 profile_mode.train_platform,
-                                profile_mode.cycle,
+                                Lifecycle.Train,
                             )
                         )
     elif profile_mode.cycle.value == LifecycleSelected.TrainAndTest.value:
@@ -134,7 +137,7 @@ def __generate_configurations_list(
                                 number_of_epochs,
                                 number_of_features,
                                 profile_mode.test_platform,
-                                profile_mode.cycle,
+                                Lifecycle.Train,
                             )
                         )
         for number_of_layers in numbers_of_layers:
@@ -148,7 +151,7 @@ def __generate_configurations_list(
                                 number_of_epochs,
                                 number_of_features,
                                 profile_mode.train_platform,
-                                profile_mode.cycle,
+                                Lifecycle.Test,
                             )
                         )
 
