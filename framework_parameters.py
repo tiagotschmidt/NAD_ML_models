@@ -76,7 +76,7 @@ class ExecutionConfiguration:
         self.cycle = cycle
 
 
-class EnviromentConfiguration:
+class EnvironmentConfiguration:
     def __init__(
         self,
         repeated_custom_layer_code: Callable[[keras.models.Model, int, int], None],
@@ -90,6 +90,7 @@ class EnviromentConfiguration:
         optimizer: str,
         start_pipe: Connection,
         log_pipe: Connection,
+        results_pipe: Connection,
     ):
         self.repeated_custom_layer_code = (repeated_custom_layer_code,)
         self.final_custom_layer_code = final_custom_layer_code
@@ -102,3 +103,4 @@ class EnviromentConfiguration:
         self.optimizer = optimizer
         self.start_pipe = start_pipe
         self.log_pipe = log_pipe
+        self.results_pipe = log_pipe

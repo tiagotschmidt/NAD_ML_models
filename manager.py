@@ -7,7 +7,7 @@ import pandas as pd
 from execution_engine import ExecutionEngine
 
 from framework_parameters import (
-    EnviromentConfiguration,
+    EnvironmentConfiguration,
     ExecutionConfiguration,
     FrameworkParameterType,
     Lifecycle,
@@ -65,7 +65,12 @@ def profile(
         profile_mode,
     )
 
-    environment = EnviromentConfiguration(
+    start_pipe_engine_side, start_engine_pipe_manager_side = multiprocessing.Pipe()
+    start_pipe_logger_side, start_logger_pipe_manager_side = multiprocessing.Pipe()
+    log_pipe_logger_side, log_pipe_engine_side = multiprocessing.Pipe()
+    results_pipe_manager_side, results_pipe_engine_side = multiprocessing.Pipe()
+
+    environment = EnvironmentConfiguration(
         repeated_custom_layer_code,
         final_custom_layer_code,
         number_of_samples,
@@ -78,10 +83,6 @@ def profile(
         start_pipe_engine_side,
         log_pipe_engine_side,
     )
-
-    start_pipe_engine_side, start_engine_pipe_manager_side = multiprocessing.Pipe()
-    start_pipe_logger_side, start_logger_pipe_manager_side = multiprocessing.Pipe()
-    log_pipe_logger_side, log_pipe_engine_side = multiprocessing.Pipe()
 
     engine = ExecutionEngine(
         configurations_list,
@@ -98,8 +99,10 @@ def profile(
     start_engine_pipe_manager_side.send(True)
     start_logger_pipe_manager_side.send(True)
 
+    list_results = results_pipe_engine_side.recv()
+
     engine.join()
-    engine.join()
+    logger.join()
 
 
 def __generate_configurations_list(
