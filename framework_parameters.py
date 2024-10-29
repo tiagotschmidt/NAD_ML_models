@@ -1,4 +1,5 @@
 from enum import Enum
+from multiprocessing import Queue
 from multiprocessing.connection import Connection
 from typing import Callable, List
 
@@ -16,6 +17,7 @@ class FrameworkParameterType(Enum):
 class ProcessSignal(Enum):
     Start = 0
     Stop = 1
+    FinalStop = 2
 
 
 class RangeParameter:
@@ -75,6 +77,18 @@ class ExecutionConfiguration:
         self.platform = platform
         self.cycle = cycle
 
+    def __str__(self):
+        return (
+            f"ExecutionConfiguration("
+            f"layers={self.number_of_layers}, "
+            f"units={self.number_of_units}, "
+            f"epochs={self.number_of_epochs}, "
+            f"features={self.number_of_features}, "
+            f"platform={self.platform}, "
+            f"cycle={self.cycle}"
+            f")"
+        )
+
 
 class EnvironmentConfiguration:
     def __init__(
@@ -89,10 +103,10 @@ class EnvironmentConfiguration:
         loss_metric_str: str,
         optimizer: str,
         start_pipe: Connection,
-        log_pipe: Connection,
+        log_queue: Queue,
         results_pipe: Connection,
     ):
-        self.repeated_custom_layer_code = (repeated_custom_layer_code,)
+        self.repeated_custom_layer_code = repeated_custom_layer_code
         self.final_custom_layer_code = final_custom_layer_code
         self.number_of_samples = number_of_samples
         self.batch_size = batch_size
@@ -102,5 +116,5 @@ class EnvironmentConfiguration:
         self.loss_metric_str = loss_metric_str
         self.optimizer = optimizer
         self.start_pipe = start_pipe
-        self.log_pipe = log_pipe
-        self.results_pipe = log_pipe
+        self.log_queue = log_queue
+        self.results_pipe = results_pipe

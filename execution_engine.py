@@ -2,7 +2,7 @@ import multiprocessing
 from multiprocessing.connection import Connection
 from os import path
 import statistics
-from time import time
+from time import sleep, time
 from typing import Callable, List
 import keras
 import numpy as np
@@ -29,25 +29,30 @@ class ExecutionEngine(multiprocessing.Process):
     ):
         super(ExecutionEngine, self).__init__()
         self.underlying_model = model
+        self.original_model = model
         self.model_name = model_name
         self.configuration_list = configuration_list
         self.environment = environment
 
     def run(self):
-        _ = self.start_pipe.recv()  ### Blocking recv call to wait star
+        _ = self.environment.start_pipe.recv()  ### Blocking recv call to wait star
         self.results_list = []
 
         for configuration in self.configuration_list:
+            self.underlying_model = self.original_model
             ## TODO: implement sampling rate via test and training proportion and via proportion of the dataset
             X_train, y_train, X_test, y_test = self.__select_x_and_y_from_config(
                 configuration
             )
+            input_shape = (
+                X_train.shape[1]
+                if configuration.cycle.value == Lifecycle.Train.value
+                else X_test.shape[1]
+            )
 
             self.__assemble_model_for_config(
                 configuration,
-                self.environment.repeated_custom_layer_code,
-                self.environment.final_custom_layer_code,
-                X_train.shape[1],
+                input_shape,
             )
 
             self.underlying_model.compile(
@@ -72,11 +77,14 @@ class ExecutionEngine(multiprocessing.Process):
             if self.__is_first_config(configuration) and self.__is_train_config(
                 configuration
             ):
-                self.__save_model_to_storage(self.model_name)
+                self.__save_model_to_storage(configuration)
 
             self.results_list.append((configuration, processed_results))
 
         self.environment.results_pipe.send(self.results_list)
+        self.environment.log_queue.put(
+            (ProcessSignal.FinalStop, configuration.platform)
+        )
 
     def __execution_routine(
         self,
@@ -87,7 +95,7 @@ class ExecutionEngine(multiprocessing.Process):
         y_test: np.ndarray[np.floating],
     ) -> dict:
         current_results = []
-        self.environment.log_pipe.send(ProcessSignal.Start)
+        self.environment.log_queue.put((ProcessSignal.Start, configuration.platform))
         start_time = time()
 
         for i in range(0, self.environment.number_of_samples):
@@ -97,20 +105,43 @@ class ExecutionEngine(multiprocessing.Process):
             current_results.append(test_results)
 
         end_time = time()
-        self.environment.log_pipe.send(ProcessSignal.Stop)
+        self.environment.log_queue.put((ProcessSignal.Stop, configuration.platform))
+
+        sleep(0.1)
+
+        sampled_power_list = []
+        total_energy = None
+        if configuration.platform.value == Platform.GPU.value:
+            sampled_power_list = self.environment.log_queue.get()
+        elif configuration.platform.value == Platform.CPU.value:
+            total_energy = self.environment.log_queue.get()
 
         elapsed_time_ms = int((end_time - start_time) * 1000)
-        processed_results = self.__process_results(current_results)
-        processed_results["elapsed_time_ms"] = elapsed_time_ms
+        processed_results = self.__process_results(
+            current_results,
+        )
 
+        processed_results["average_elapsed_time_ms"] = (
+            elapsed_time_ms / self.environment.number_of_samples
+        )
+        if total_energy == None and len(sampled_power_list) != 0:
+            average_power_consumption = statistics.mean(sampled_power_list)
+            total_energy = average_power_consumption * elapsed_time_ms / 1000
+        processed_results["average_energy_consumption"] = (
+            total_energy / self.environment.number_of_samples
+        )
         return processed_results
 
-    def __process_results(self, current_results: List[dict]) -> dict:
+    def __process_results(
+        self,
+        current_results: List[dict],
+    ) -> dict:
         all_metrics = set()
         for result in current_results:
             all_metrics.update(result.keys())
 
         processed_results = {}
+        total_samples = 0
 
         for metric in all_metrics:
             metric_values = []
@@ -118,12 +149,13 @@ class ExecutionEngine(multiprocessing.Process):
                 if metric in result:
                     metric_values.append(result[metric])
 
+            total_samples = len(metric_values)
             processed_results[metric] = {
                 "mean": statistics.mean(metric_values),
                 "median": statistics.median(metric_values),
                 "std": statistics.stdev(metric_values),
                 "error": statistics.stdev(metric_values) / len(metric_values) ** 0.5,
-                "total_samples": len(metric_values),
+                "total_samples": total_samples,
             }
 
         return processed_results
@@ -137,7 +169,8 @@ class ExecutionEngine(multiprocessing.Process):
     def __execute_config(
         self, configuration: ExecutionConfiguration, X_train, y_train, X_test, y_test
     ) -> dict:
-        if configuration.cycle.value == Lifecycle.Train:
+        test_results = {}
+        if configuration.cycle.value == Lifecycle.Train.value:
             _ = self.underlying_model.fit(
                 X_train,
                 y_train,
@@ -148,12 +181,12 @@ class ExecutionEngine(multiprocessing.Process):
             test_results = self.underlying_model.evaluate(
                 X_test, y_test, verbose=1, return_dict=True
             )
-        elif configuration.cycle.value == Lifecycle.Test:
+            return test_results
+        elif configuration.cycle.value == Lifecycle.Test.value:
             test_results = self.underlying_model.evaluate(
-                X_train, y_train, verbose=1, return_dict=True
+                X_test, y_test, verbose=1, return_dict=True
             )
-
-        return test_results
+            return test_results
 
     def __select_x_and_y_from_config(
         self, configuration: ExecutionConfiguration
@@ -164,10 +197,8 @@ class ExecutionEngine(multiprocessing.Process):
         np.ndarray[np.floating],
     ]:
         (X_train, y_train, X_test, y_test) = (
-            self.__get_x_and_y(
-                self.environment.dataset_target_label, configuration.number_of_features
-            )
-            if configuration.cycle.value == Lifecycle.Train
+            self.__get_x_and_y(configuration.number_of_features)
+            if configuration.cycle.value == Lifecycle.Train.value
             else self.__get_full_dataset(configuration.number_of_features)
         )
 
@@ -178,10 +209,9 @@ class ExecutionEngine(multiprocessing.Process):
         configuration: ExecutionConfiguration,
         x_train_shape: int,
     ):
-        if configuration.cycle.value == Lifecycle.Test:
-            sucess, returned_model = self.__try_load_model_from_storage(self.model_name)
-            if sucess:
-                self.underlying_model = returned_model
+        if configuration.cycle.value == Lifecycle.Test.value:
+            load_sucess = self.__try_load_model_from_storage(configuration)
+            if load_sucess:
                 return
         for i in range(0, configuration.number_of_layers):
             self.environment.repeated_custom_layer_code(
@@ -247,6 +277,7 @@ class ExecutionEngine(multiprocessing.Process):
             with open(filepath, "r") as json_file:
                 loaded_model_json = json_file.read()
                 self.underlying_model = model_from_json(loaded_model_json)
+                json_file.close()
                 self.underlying_model.load_weights(weightspath)
                 return True
         except (FileNotFoundError, IOError, ValueError) as e:
