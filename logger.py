@@ -48,6 +48,7 @@ class Logger(multiprocessing.Process):
                         power_usage_str = output.split("\n")[1]
                         power_usage = float(power_usage_str[:-2])
                         gpu_power_results.append(power_usage)
+
                         try:
                             (item, item2) = self.log_queue.get(block=False)
                             if isinstance(item, ProcessSignal):

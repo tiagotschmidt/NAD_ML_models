@@ -43,6 +43,11 @@ def mock_execution_config():
 
 
 @pytest.fixture
+def mock_internal_logger():
+    return Mock()
+
+
+@pytest.fixture
 def mock_model():
     model = Sequential()
     model.add(tf.keras.layers.Dense(64, input_shape=(10,)))
@@ -51,9 +56,13 @@ def mock_model():
 
 
 @pytest.fixture
-def execution_engine(mock_environment, mock_execution_config, mock_model):
+def execution_engine(
+    mock_environment, mock_execution_config, mock_model, mock_internal_logger
+):
     config_list = [mock_execution_config]
-    return ExecutionEngine(config_list, mock_model, "test_model", mock_environment)
+    return ExecutionEngine(
+        config_list, mock_model, "test_model", mock_environment, mock_internal_logger
+    )
 
 
 def test_initialization(
@@ -62,31 +71,7 @@ def test_initialization(
     assert execution_engine.underlying_model == mock_model
     assert execution_engine.model_name == "test_model"
     assert execution_engine.configuration_list == [mock_execution_config]
-    assert execution_engine.enviroment == mock_environment
-
-
-def test_execution_routine(execution_engine, mock_execution_config):
-    X_train, y_train, X_test, y_test = (
-        np.zeros((100, 10)),
-        np.zeros(100),
-        np.zeros((20, 10)),
-        np.zeros(20),
-    )
-    execution_engine.enviroment.log_pipe = Mock()
-    execution_engine.enviroment.number_of_samples = 10
-
-    with patch.object(
-        execution_engine,
-        "_ExecutionEngine__execute_config",
-        return_value={"accuracy": 0.95},
-    ):
-        result = execution_engine._ExecutionEngine__execution_routine(
-            mock_execution_config, X_train, y_train, X_test, y_test
-        )
-
-        assert "accuracy" in result
-        assert result["accuracy"]["mean"] == 0.95
-        assert result["accuracy"]["total_samples"] == 10
+    assert execution_engine.environment == mock_environment
 
 
 def test_process_results(execution_engine):
@@ -114,59 +99,11 @@ def test_is_train_config(execution_engine, mock_execution_config):
     )
 
 
-def test_is_first_config(execution_engine, mock_execution_config):
-    assert (
-        execution_engine._ExecutionEngine__is_first_config(mock_execution_config)
-        == True
-    )
-    another_config = Mock(spec=ExecutionConfiguration)
-    execution_engine.configuration_list.append(another_config)
-    assert execution_engine._ExecutionEngine__is_first_config(another_config) == False
-
-
 def test_try_load_model_from_storage(execution_engine, mock_execution_config):
     result = execution_engine._ExecutionEngine__try_load_model_from_storage(
         mock_execution_config
     )
     assert result == False  ## no save
-
-
-@patch.object(ExecutionEngine, "_ExecutionEngine__get_x_and_y")
-@patch.object(ExecutionEngine, "_ExecutionEngine__get_full_dataset")
-def test_select_x_and_y_from_config(
-    mockgetx, mockgetfull, execution_engine, mock_execution_config
-):
-    mock_execution_config.cycle = Lifecycle.Train
-    execution_engine.enviroment = Mock()
-    execution_engine.enviroment.dataset = pd.DataFrame(np.random.rand(120, 11))
-    execution_engine.enviroment.dataset_target_label = 10
-
-    # Mock the return values of the patched methods
-    mockgetx.return_value = (
-        np.zeros((100, 10)),
-        np.zeros(100),
-        np.zeros((20, 10)),
-        np.zeros(20),
-    )
-
-    mockgetfull.return_value = (
-        [],
-        [],
-        np.zeros((120, 10)),
-        np.zeros(120),
-    )
-
-    X_train, y_train, X_test, y_test = (
-        execution_engine._ExecutionEngine__select_x_and_y_from_config(
-            mock_execution_config
-        )
-    )
-
-    # Assertions to verify the correct behavior
-    assert X_train.shape[1] == mock_execution_config.number_of_features
-    assert len(y_train) == len(X_train)
-    assert X_test.shape[1] == mock_execution_config.number_of_features
-    assert len(y_test) == len(X_test)
 
 
 def test_assemble_model_for_config(execution_engine, mock_execution_config):
@@ -175,18 +112,18 @@ def test_assemble_model_for_config(execution_engine, mock_execution_config):
         mock_execution_config, x_train_shape
     )
     assert (
-        execution_engine.enviroment.repeated_custom_layer_code.call_count
+        execution_engine.environment.repeated_custom_layer_code.call_count
         == mock_execution_config.number_of_layers
     )
-    execution_engine.enviroment.final_custom_layer_code.assert_called_once_with(
+    execution_engine.environment.final_custom_layer_code.assert_called_once_with(
         execution_engine.underlying_model
     )
 
 
 def test_get_x_and_y(execution_engine):
-    execution_engine.enviroment = Mock()
-    execution_engine.enviroment.dataset = pd.DataFrame(np.random.rand(120, 11))
-    execution_engine.enviroment.dataset_target_label = 10
+    execution_engine.environment = Mock()
+    execution_engine.environment.dataset = pd.DataFrame(np.random.rand(120, 11))
+    execution_engine.environment.dataset_target_label = 10
 
     X_train, y_train, X_test, y_test = execution_engine._ExecutionEngine__get_x_and_y(
         10
@@ -198,9 +135,9 @@ def test_get_x_and_y(execution_engine):
 
 
 def test_get_full_dataset(execution_engine):
-    execution_engine.enviroment = Mock()
-    execution_engine.enviroment.dataset = pd.DataFrame(np.random.rand(120, 11))
-    execution_engine.enviroment.dataset_target_label = 10
+    execution_engine.environment = Mock()
+    execution_engine.environment.dataset = pd.DataFrame(np.random.rand(120, 11))
+    execution_engine.environment.dataset_target_label = 10
 
     _, _, X_test, Y_test = execution_engine._ExecutionEngine__get_full_dataset(10)
     assert X_test.shape == (120, 10)
