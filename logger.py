@@ -35,8 +35,7 @@ class Logger(multiprocessing.Process):
 
                     ((signal, platform)) = self.log_queue.get()
                     cpu_power_meter.end()
-                    print(cpu_power_meter.result)
-                    self.log_queue.put(cpu_power_meter.result)
+                    self.log_queue.put(cpu_power_meter.result.pkg[0])
                 else:
                     while signal.value != ProcessSignal.Stop.value:
                         result = subprocess.run(
@@ -57,6 +56,6 @@ class Logger(multiprocessing.Process):
                             sleep(0.005)
                             pass
                     self.log_queue.put(gpu_power_results)
-                    sleep(1)
+                sleep(1)
             if signal.value == ProcessSignal.FinalStop.value:
                 stop = True

@@ -1,6 +1,7 @@
 import multiprocessing
 from multiprocessing.connection import Connection
 from os import path
+import os
 import statistics
 from time import sleep, time
 from typing import Callable, List
@@ -41,56 +42,59 @@ class ExecutionEngine(multiprocessing.Process):
         self.results_list = []
 
         for configuration in self.configuration_list:
-            self.internal_logger.info(
-                f"Starting execution for model {self.model_name} config: {configuration}"
-            )
-            self.underlying_model = self.original_model
-            ## TODO: implement sampling rate via test and training proportion and via proportion of the dataset
-            X_train, y_train, X_test, y_test = self.__select_x_and_y_from_config(
-                configuration
-            )
-            input_shape = (
-                X_train.shape[1]
-                if configuration.cycle.value == Lifecycle.Train.value
-                else X_test.shape[1]
-            )
-
-            self.__assemble_model_for_config(
-                configuration,
-                input_shape,
-            )
-
-            self.underlying_model.compile(
-                loss=self.environment.loss_metric_str,
-                optimizer=self.environment.optimizer,
-                metrics=self.environment.performance_metrics_list,
-            )
-
-            processed_results = {}
-
-            if configuration.platform.value == Platform.CPU:
+            if configuration.platform.value == Platform.CPU.value:
                 with tf.device("/cpu:0"):
+                    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
                     self.internal_logger.info("Starting execution on CPU.")
-                    processed_results = self.__execution_routine(
-                        configuration, X_train, y_train, X_test, y_test
-                    )
+                    self.execute_configuration(configuration)
             else:
                 with tf.device("/gpu:0"):
+                    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
                     self.internal_logger.info("Starting execution on GPU.")
-                    processed_results = self.__execution_routine(
-                        configuration, X_train, y_train, X_test, y_test
-                    )
-
-            if self.__is_train_config(configuration):
-                self.internal_logger.info("Saving model to storage.")
-                self.__save_model_to_storage(configuration)
-
-            self.results_list.append((configuration, processed_results))
+                    self.execute_configuration(configuration)
 
         self.environment.results_pipe.send(self.results_list)
         self.environment.log_queue.put(
             (ProcessSignal.FinalStop, configuration.platform)
         )
+
+    def execute_configuration(self, configuration):
+        self.internal_logger.info(
+            f"Starting execution for model {self.model_name} config: {configuration}"
+        )
+        self.underlying_model = self.original_model
+        ## TODO: implement sampling rate via test and training proportion and via proportion of the dataset
+        X_train, y_train, X_test, y_test = self.__select_x_and_y_from_config(
+            configuration
+        )
+        input_shape = (
+            X_train.shape[1]
+            if configuration.cycle.value == Lifecycle.Train.value
+            else X_test.shape[1]
+        )
+
+        self.__assemble_model_for_config(
+            configuration,
+            input_shape,
+        )
+
+        self.underlying_model.compile(
+            loss=self.environment.loss_metric_str,
+            optimizer=self.environment.optimizer,
+            metrics=self.environment.performance_metrics_list,
+        )
+
+        processed_results = {}
+
+        processed_results = self.__execution_routine(
+            configuration, X_train, y_train, X_test, y_test
+        )
+
+        if self.__is_train_config(configuration):
+            self.internal_logger.info("Saving model to storage.")
+            self.__save_model_to_storage(configuration)
+
+        self.results_list.append((configuration, processed_results))
 
     def __execution_routine(
         self,
@@ -105,7 +109,7 @@ class ExecutionEngine(multiprocessing.Process):
         start_time = time()
 
         for i in range(0, self.environment.number_of_samples):
-            test_results = self.__execute_config(
+            test_results = self.__execute_sample(
                 configuration, X_train, y_train, X_test, y_test
             )
             current_results.append(test_results)
@@ -115,12 +119,12 @@ class ExecutionEngine(multiprocessing.Process):
 
         sleep(0.1)
 
-        sampled_power_list = []
-        total_energy = None
+        gpu_sampled_power_list = []
+        cpu_total_energy_micro_joules = None
         if configuration.platform.value == Platform.GPU.value:
-            sampled_power_list = self.environment.log_queue.get()
+            gpu_sampled_power_list = self.environment.log_queue.get()
         elif configuration.platform.value == Platform.CPU.value:
-            total_energy = self.environment.log_queue.get()
+            cpu_total_energy_micro_joules = self.environment.log_queue.get()
 
         elapsed_time_ms = int((end_time - start_time) * 1000)
         processed_results = self.__process_results(
@@ -130,11 +134,14 @@ class ExecutionEngine(multiprocessing.Process):
         processed_results["average_elapsed_time_ms"] = (
             elapsed_time_ms / self.environment.number_of_samples
         )
-        if total_energy == None and len(sampled_power_list) != 0:
-            average_power_consumption = statistics.mean(sampled_power_list)
-            total_energy = average_power_consumption * elapsed_time_ms / 1000
-        processed_results["average_energy_consumption"] = (
-            total_energy / self.environment.number_of_samples
+        total_energy_joules = 0
+        if cpu_total_energy_micro_joules == None and len(gpu_sampled_power_list) != 0:
+            average_power_consumption = statistics.mean(gpu_sampled_power_list)
+            total_energy_joules = average_power_consumption * elapsed_time_ms / 1000
+        if cpu_total_energy_micro_joules != None and len(gpu_sampled_power_list) == 0:
+            total_energy_joules = cpu_total_energy_micro_joules / 1000000
+        processed_results["average_energy_consumption_joules"] = (
+            total_energy_joules / self.environment.number_of_samples
         )
         return processed_results
 
@@ -169,7 +176,7 @@ class ExecutionEngine(multiprocessing.Process):
     def __is_train_config(self, configuration) -> bool:
         return configuration.cycle.value == Lifecycle.Train.value
 
-    def __execute_config(
+    def __execute_sample(
         self, configuration: ExecutionConfiguration, X_train, y_train, X_test, y_test
     ) -> dict:
         test_results = {}
