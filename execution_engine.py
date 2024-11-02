@@ -26,6 +26,7 @@ class ExecutionEngine(multiprocessing.Process):
         model: keras.models.Model,
         model_name: str,
         environment: EnvironmentConfiguration,
+        internal_logger,
     ):
         super(ExecutionEngine, self).__init__()
         self.underlying_model = model
@@ -33,12 +34,16 @@ class ExecutionEngine(multiprocessing.Process):
         self.model_name = model_name
         self.configuration_list = configuration_list
         self.environment = environment
+        self.internal_logger = internal_logger
 
     def run(self):
         _ = self.environment.start_pipe.recv()  ### Blocking recv call to wait star
         self.results_list = []
 
         for configuration in self.configuration_list:
+            self.internal_logger.info(
+                f"Starting execution for model {self.model_name} config: {configuration}"
+            )
             self.underlying_model = self.original_model
             ## TODO: implement sampling rate via test and training proportion and via proportion of the dataset
             X_train, y_train, X_test, y_test = self.__select_x_and_y_from_config(
@@ -65,18 +70,19 @@ class ExecutionEngine(multiprocessing.Process):
 
             if configuration.platform.value == Platform.CPU:
                 with tf.device("/cpu:0"):
+                    self.internal_logger.info("Starting execution on CPU.")
                     processed_results = self.__execution_routine(
                         configuration, X_train, y_train, X_test, y_test
                     )
             else:
                 with tf.device("/gpu:0"):
+                    self.internal_logger.info("Starting execution on GPU.")
                     processed_results = self.__execution_routine(
                         configuration, X_train, y_train, X_test, y_test
                     )
 
-            if self.__is_first_config(configuration) and self.__is_train_config(
-                configuration
-            ):
+            if self.__is_train_config(configuration):
+                self.internal_logger.info("Saving model to storage.")
                 self.__save_model_to_storage(configuration)
 
             self.results_list.append((configuration, processed_results))
@@ -163,9 +169,6 @@ class ExecutionEngine(multiprocessing.Process):
     def __is_train_config(self, configuration) -> bool:
         return configuration.cycle.value == Lifecycle.Train.value
 
-    def __is_first_config(self, configuration) -> bool:
-        return self.configuration_list.index(configuration) == 0
-
     def __execute_config(
         self, configuration: ExecutionConfiguration, X_train, y_train, X_test, y_test
     ) -> dict:
@@ -212,7 +215,12 @@ class ExecutionEngine(multiprocessing.Process):
         if configuration.cycle.value == Lifecycle.Test.value:
             load_sucess = self.__try_load_model_from_storage(configuration)
             if load_sucess:
+                self.internal_logger.info("Subject model was loaded from storage.")
                 return
+            else:
+                self.internal_logger.info(
+                    "Subject model was not avaible in storage. Assembling model."
+                )
         for i in range(0, configuration.number_of_layers):
             self.environment.repeated_custom_layer_code(
                 self.underlying_model, configuration.number_of_units, x_train_shape
@@ -270,8 +278,8 @@ class ExecutionEngine(multiprocessing.Process):
         self,
         configuration: ExecutionConfiguration,
     ) -> bool:
-        filepath = f"./models/json_models/{self.model_name}_{configuration.number_of_layers}_{configuration.number_of_units}_{configuration.number_of_epochs}_{configuration.number_of_features}.json"
-        weightspath = f"./models/models_weights/{self.model_name}_{configuration.number_of_layers}_{configuration.number_of_units}_{configuration.number_of_epochs}_{configuration.number_of_features}.weights.h5"
+        filepath = f"./models/json_models/{self.model_name}_{configuration.number_of_layers}_{configuration.number_of_units}_{configuration.number_of_epochs}_{configuration.number_of_features}_{configuration.platform}.json"
+        weightspath = f"./models/models_weights/{self.model_name}_{configuration.number_of_layers}_{configuration.number_of_units}_{configuration.number_of_epochs}_{configuration.number_of_features}_{configuration.platform}.weights.h5"
 
         try:
             with open(filepath, "r") as json_file:
@@ -287,8 +295,8 @@ class ExecutionEngine(multiprocessing.Process):
         self,
         configuration: ExecutionConfiguration,
     ):
-        filepath = f"./models/json_models/{self.model_name}_{configuration.number_of_layers}_{configuration.number_of_units}_{configuration.number_of_epochs}_{configuration.number_of_features}.json"
-        weightspath = f"./models/models_weights/{self.model_name}_{configuration.number_of_layers}_{configuration.number_of_units}_{configuration.number_of_epochs}_{configuration.number_of_features}.weights.h5"
+        filepath = f"./models/json_models/{self.model_name}_{configuration.number_of_layers}_{configuration.number_of_units}_{configuration.number_of_epochs}_{configuration.number_of_features}_{configuration.platform}.json"
+        weightspath = f"./models/models_weights/{self.model_name}_{configuration.number_of_layers}_{configuration.number_of_units}_{configuration.number_of_epochs}_{configuration.number_of_features}_{configuration.platform}.weights.h5"
         if not path.isfile(filepath):
             model_json = self.underlying_model.to_json()
             with open(filepath, "w") as json_file:

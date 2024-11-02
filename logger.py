@@ -12,10 +12,12 @@ class Logger(multiprocessing.Process):
         self,
         start_pipe: Connection,
         log_queue: multiprocessing.Queue,
+        internal_logger,
     ):
         super(Logger, self).__init__()
         self.start_pipe = start_pipe
         self.log_queue = log_queue
+        self.internal_logger = internal_logger
 
     def run(self):
         start_trigger = self.start_pipe.recv()

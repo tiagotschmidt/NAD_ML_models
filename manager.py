@@ -1,8 +1,27 @@
+import os
+
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
+os.environ["GRPC_VERBOSITY"] = "ERROR"
+os.environ["GLOG_minloglevel"] = "2"
+
 from keras.models import Sequential
+from keras.layers import Dense
 import multiprocessing
 from typing import Callable, List
 import keras
 import pandas as pd
+import logging
+import datetime
+
+internal_logger = logging.getLogger(__name__)
+timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+internal_log_filename = f"epp_nad_{timestamp}.log"
+logging.basicConfig(
+    filename=internal_log_filename,
+    level=logging.DEBUG,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
 
 from execution_engine import ExecutionEngine
 
@@ -65,9 +84,12 @@ def profile(
         profile_mode,
     )
 
+    logging.info("Starting EPPNAD.")
+    print("Starting EPPNAD")
+
     start_pipe_engine_side, start_engine_pipe_manager_side = multiprocessing.Pipe()
     start_pipe_logger_side, start_logger_pipe_manager_side = multiprocessing.Pipe()
-    log_pipe_logger_side, log_pipe_engine_side = multiprocessing.Pipe()
+    log_engine_queue = multiprocessing.Queue()
     results_pipe_manager_side, results_pipe_engine_side = multiprocessing.Pipe()
 
     environment = EnvironmentConfiguration(
@@ -81,17 +103,15 @@ def profile(
         loss_metric_str,
         optimizer,
         start_pipe_engine_side,
-        log_pipe_engine_side,
+        log_engine_queue,
+        results_pipe_engine_side,
     )
 
     engine = ExecutionEngine(
-        configurations_list,
-        user_model,
-        user_model_name,
-        environment,
+        configurations_list, user_model, user_model_name, environment, internal_logger
     )
 
-    logger = Logger(start_pipe_logger_side, log_pipe_logger_side)
+    logger = Logger(start_pipe_logger_side, log_engine_queue, internal_logger)
 
     engine.start()
     logger.start()
@@ -99,7 +119,10 @@ def profile(
     start_engine_pipe_manager_side.send(True)
     start_logger_pipe_manager_side.send(True)
 
-    list_results = results_pipe_engine_side.recv()
+    list_results = results_pipe_manager_side.recv()
+    (config, result) = list_results[0]
+    print(config)
+    print(result)
 
     engine.join()
     logger.join()
@@ -176,6 +199,51 @@ def __generate_configurations_list(
     return return_list
 
 
-# print("eae")
-# cnn = Sequential()
-# profile(cnn)
+model = Sequential()
+
+
+def repeated_custom_layer(model, number_of_units, input_shape):
+    model.add(Dense(units=number_of_units, input_dim=input_shape, activation="relu"))
+
+
+def final_custom_layer(model):
+    model.add(Dense(units=1, activation="sigmoid"))
+
+
+numbers_of_layers = RangeParameter(100, 100, 100, FrameworkParameterType.NumberOfLayers)
+numbers_of_neurons = RangeParameter(10, 10, 40, FrameworkParameterType.NumberOfNeurons)
+numbers_of_epochs = RangeParameter(1, 1, 1, FrameworkParameterType.NumberOfEpochs)
+numbers_of_features = RangeParameter(
+    70, 70, 10, FrameworkParameterType.NumberOfFeatures
+)
+
+# Define profile mode
+profile_mode = MLMode(LifecycleSelected.TrainAndTest, Platform.GPU, Platform.GPU)
+
+# Define other parameters
+number_of_samples = 2
+batch_size = 40960
+performance_metrics_list = ["accuracy", "f1_score", "precision", "recall"]
+preprocessed_dataset = pd.read_csv("dataset/preprocessed_binary_dataset.csv")
+dataset_target_label = "intrusion"
+loss_metric_str = "binary_crossentropy"
+optimizer = "adam"
+
+profile(
+    model,
+    "Test_Model",
+    repeated_custom_layer_code=repeated_custom_layer,
+    final_custom_layer_code=final_custom_layer,
+    numbers_of_layers=numbers_of_layers,
+    numbers_of_neurons=numbers_of_neurons,
+    numbers_of_epochs=numbers_of_epochs,
+    numbers_of_features=numbers_of_features,
+    profile_mode=profile_mode,
+    number_of_samples=number_of_samples,
+    batch_size=batch_size,
+    performance_metrics_list=performance_metrics_list,
+    preprocessed_dataset=preprocessed_dataset,
+    dataset_target_label=dataset_target_label,
+    loss_metric_str=loss_metric_str,
+    optimizer=optimizer,
+)
