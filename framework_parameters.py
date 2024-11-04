@@ -52,8 +52,8 @@ class MLMode:
     def __init__(
         self,
         cycle: LifecycleSelected,
-        train_platform: Platform = None,
-        test_platform: Platform = None,
+        train_platform: Platform = None,  # type: ignore
+        test_platform: Platform = None,  # type: ignore
     ):
         self.cycle = cycle
         self.test_platform = test_platform
@@ -103,8 +103,9 @@ class EnvironmentConfiguration:
         loss_metric_str: str,
         optimizer: str,
         start_pipe: Connection,
-        log_queue: Queue,
         results_pipe: Connection,
+        log_signal_pipe: Connection,
+        log_result_pipe: Connection,
     ):
         self.repeated_custom_layer_code = repeated_custom_layer_code
         self.final_custom_layer_code = final_custom_layer_code
@@ -116,5 +117,6 @@ class EnvironmentConfiguration:
         self.loss_metric_str = loss_metric_str
         self.optimizer = optimizer
         self.start_pipe = start_pipe
-        self.log_queue = log_queue
         self.results_pipe = results_pipe
+        self.log_signal_pipe = log_signal_pipe
+        self.log_result_pipe = log_result_pipe

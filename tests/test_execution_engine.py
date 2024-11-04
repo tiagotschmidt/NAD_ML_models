@@ -11,7 +11,8 @@ from framework_parameters import (
     Lifecycle,
     ProcessSignal,
 )
-from keras.models import Sequential
+import keras
+from keras._tf_keras.keras.models import Sequential
 
 from ..execution_engine import ExecutionEngine
 
@@ -48,27 +49,28 @@ def mock_internal_logger():
 
 
 @pytest.fixture
-def mock_model():
-    model = Sequential()
-    model.add(tf.keras.layers.Dense(64, input_shape=(10,)))
-    model.add(tf.keras.layers.Dense(1))
-    return model
+def mock_model_func():
+    return Sequential()
 
 
 @pytest.fixture
 def execution_engine(
-    mock_environment, mock_execution_config, mock_model, mock_internal_logger
+    mock_environment, mock_execution_config, mock_model_func, mock_internal_logger
 ):
     config_list = [mock_execution_config]
     return ExecutionEngine(
-        config_list, mock_model, "test_model", mock_environment, mock_internal_logger
+        config_list,
+        mock_model_func,
+        "test_model",
+        mock_environment,
+        mock_internal_logger,
     )
 
 
 def test_initialization(
-    execution_engine, mock_model, mock_execution_config, mock_environment
+    execution_engine, mock_model_func, mock_execution_config, mock_environment
 ):
-    assert execution_engine.underlying_model == mock_model
+    assert execution_engine.underlying_model_func == mock_model_func
     assert execution_engine.model_name == "test_model"
     assert execution_engine.configuration_list == [mock_execution_config]
     assert execution_engine.environment == mock_environment
@@ -100,23 +102,24 @@ def test_is_train_config(execution_engine, mock_execution_config):
 
 
 def test_try_load_model_from_storage(execution_engine, mock_execution_config):
-    result = execution_engine._ExecutionEngine__try_load_model_from_storage(
+    (result, model) = execution_engine._ExecutionEngine__try_load_model_from_storage(
         mock_execution_config
     )
     assert result == False  ## no save
 
 
 def test_assemble_model_for_config(execution_engine, mock_execution_config):
+    mock_model = Mock()
     x_train_shape = 10
     execution_engine._ExecutionEngine__assemble_model_for_config(
-        mock_execution_config, x_train_shape
+        mock_model, mock_execution_config, x_train_shape
     )
     assert (
         execution_engine.environment.repeated_custom_layer_code.call_count
         == mock_execution_config.number_of_layers
     )
     execution_engine.environment.final_custom_layer_code.assert_called_once_with(
-        execution_engine.underlying_model
+        mock_model
     )
 
 

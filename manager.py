@@ -30,7 +30,7 @@ from logger import Logger
 
 
 def profile(
-    user_model: keras.models.Model,
+    user_model_func,
     user_model_name: str,
     repeated_custom_layer_code: Callable[[keras.models.Model, int, int], None],
     final_custom_layer_code: Callable[[keras.models.Model], None],
@@ -64,8 +64,8 @@ def profile(
     loss_metric_str: str = "binary_crossentropy",
     optimizer: str = "adam",
 ):
-    if not isinstance(user_model, keras.models.Model):
-        raise TypeError("Input model must be a Keras model.")
+    #    if not isinstance(user_model_func, keras.models.Model):
+    #       raise TypeError("Input model must be a Keras model.")
 
     configurations_list = __generate_configurations_list(
         numbers_of_layers,
@@ -79,7 +79,8 @@ def profile(
 
     start_pipe_engine_side, start_engine_pipe_manager_side = multiprocessing.Pipe()
     start_pipe_logger_side, start_logger_pipe_manager_side = multiprocessing.Pipe()
-    log_engine_queue = multiprocessing.Queue()
+    log_side_signal_pipe, engine_side_signal_pipe = multiprocessing.Pipe()
+    engine_side_result_pipe, log_side_result_pipe = multiprocessing.Pipe()
     results_pipe_manager_side, results_pipe_engine_side = multiprocessing.Pipe()
 
     environment = EnvironmentConfiguration(
@@ -93,15 +94,25 @@ def profile(
         loss_metric_str,
         optimizer,
         start_pipe_engine_side,
-        log_engine_queue,
         results_pipe_engine_side,
+        engine_side_signal_pipe,
+        engine_side_result_pipe,
     )
 
     engine = ExecutionEngine(
-        configurations_list, user_model, user_model_name, environment, internal_logger
+        configurations_list,
+        user_model_func,
+        user_model_name,
+        environment,
+        internal_logger,
     )
 
-    logger = Logger(start_pipe_logger_side, log_engine_queue, internal_logger)
+    logger = Logger(
+        start_pipe_logger_side,
+        internal_logger,
+        log_side_signal_pipe,
+        log_side_result_pipe,
+    )
 
     engine.start()
     logger.start()
@@ -166,7 +177,7 @@ def __generate_configurations_list(
                                 number_of_neurons,
                                 number_of_epochs,
                                 number_of_features,
-                                profile_mode.test_platform,
+                                profile_mode.train_platform,
                                 Lifecycle.Train,
                             )
                         )
@@ -180,7 +191,7 @@ def __generate_configurations_list(
                                 number_of_neurons,
                                 number_of_epochs,
                                 number_of_features,
-                                profile_mode.train_platform,
+                                profile_mode.test_platform,
                                 Lifecycle.Test,
                             )
                         )
