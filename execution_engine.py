@@ -45,11 +45,15 @@ class ExecutionEngine(multiprocessing.Process):
         for configuration in self.configuration_list:
             if configuration.platform.value == Platform.CPU.value:
                 with tf.device("/cpu:0"):
-                    self.internal_logger.info("Starting execution on CPU.")
+                    self.internal_logger.info(
+                        "[EXECUTION-ENGINE] Starting execution on CPU."
+                    )
                     self.execute_configuration(configuration)
             else:
                 with tf.device("/gpu:0"):
-                    self.internal_logger.info("Starting execution on GPU.")
+                    self.internal_logger.info(
+                        "[EXECUTION-ENGINE] Starting execution on GPU."
+                    )
                     self.execute_configuration(configuration)
 
         self.environment.results_pipe.send(self.results_list)
@@ -59,7 +63,7 @@ class ExecutionEngine(multiprocessing.Process):
 
     def execute_configuration(self, configuration):
         self.internal_logger.info(
-            f"Starting execution for model {self.model_name} config: {configuration}"
+            f"[EXECUTION-ENGINE] Starting execution for model {self.model_name} config: {configuration}"
         )
 
         underlying_model = self.underlying_model_func()
@@ -73,14 +77,14 @@ class ExecutionEngine(multiprocessing.Process):
             else X_test.shape[1]
         )
 
-        self.__assemble_model_for_config(
+        underlying_model = self.__assemble_model_for_config(
             underlying_model,
             configuration,
             input_shape,
         )
 
         underlying_model.compile(
-            jit_compile=False,
+            jit_compile=False,  # type: ignore
             loss=self.environment.loss_metric_str,
             optimizer=self.environment.optimizer,
             metrics=self.environment.performance_metrics_list,
@@ -94,7 +98,7 @@ class ExecutionEngine(multiprocessing.Process):
         )
 
         if self.__is_train_config(configuration):
-            self.internal_logger.info("Saving model to storage.")
+            self.internal_logger.info("[EXECUTION-ENGINE] Saving model to storage.")
             self.__save_model_to_storage(underlying_model, configuration)
 
         self.results_list.append((configuration, processed_results))
@@ -238,25 +242,26 @@ class ExecutionEngine(multiprocessing.Process):
         underlying_model: keras.models.Model,
         configuration: ExecutionConfiguration,
         x_train_shape: int,
-    ):
-        self.internal_logger.info(f"Current x_train_shape: {x_train_shape}")
+    ) -> keras.models.Model:
         if configuration.cycle.value == Lifecycle.Test.value:
-            (load_sucess, loaded_model) = self.__try_load_model_from_storage(
-                configuration
+            (load_sucess, candidate_model) = self.__try_load_model_from_storage(
+                underlying_model, configuration
             )
             if load_sucess:
-                self.internal_logger.info("Subject model was loaded from storage.")
-                underlying_model = loaded_model
-                return
+                self.internal_logger.info(
+                    "[EXECUTION-ENGINE] Subject model was loaded from storage."
+                )
+                return candidate_model
             else:
                 self.internal_logger.info(
-                    "Subject model was not avaible in storage. Assembling model."
+                    "[EXECUTION-ENGINE] Subject model was not avaible in storage. Assembling model."
                 )
         for i in range(0, configuration.number_of_layers):
             self.environment.repeated_custom_layer_code(
                 underlying_model, configuration.number_of_units, x_train_shape
             )
         self.environment.final_custom_layer_code(underlying_model)
+        return underlying_model
 
     def __get_x_and_y(self, number_of_features: int) -> tuple[
         np.ndarray[np.floating],  # type: ignore
@@ -280,8 +285,12 @@ class ExecutionEngine(multiprocessing.Process):
             features, target, test_size=0.2, random_state=42
         )
         X_train = np.asarray(X_train).astype(np.float32)
-        self.internal_logger.info(f"Using dataset with {X_train.shape[1]} features")
         X_test = np.asarray(X_test).astype(np.float32)
+
+        self.internal_logger.info(
+            f"[EXECUTION-ENGINE] Using dataset with {X_train.shape[1]} features"
+        )
+
         return (X_train, y_train, X_test, y_test)
 
     def __get_full_dataset(self, number_of_features: int) -> tuple:
@@ -303,12 +312,12 @@ class ExecutionEngine(multiprocessing.Process):
 
     def __try_load_model_from_storage(
         self,
+        underlying_model: keras.models.Model,
         configuration: ExecutionConfiguration,
     ) -> tuple[bool, keras.models.Model]:
-        filepath = f"./models/json_models/{self.model_name}_{configuration.number_of_layers}_{configuration.number_of_units}_{configuration.number_of_epochs}_{configuration.number_of_features}_{configuration.platform}.json"
-        weightspath = f"./models/models_weights/{self.model_name}_{configuration.number_of_layers}_{configuration.number_of_units}_{configuration.number_of_epochs}_{configuration.number_of_features}_{configuration.platform}.weights.h5"
+        filepath = f"./models/json_models/{self.model_name}_{configuration.number_of_layers}_{configuration.number_of_units}_{configuration.number_of_epochs}_{configuration.number_of_features}.json"
+        weightspath = f"./models/models_weights/{self.model_name}_{configuration.number_of_layers}_{configuration.number_of_units}_{configuration.number_of_epochs}_{configuration.number_of_features}.weights.h5"
 
-        return_model = None
         try:
             with open(filepath, "r") as json_file:
                 loaded_model_json = json_file.read()
@@ -324,8 +333,8 @@ class ExecutionEngine(multiprocessing.Process):
         underlying_model: keras.models.Model,
         configuration: ExecutionConfiguration,
     ):
-        filepath = f"./models/json_models/{self.model_name}_{configuration.number_of_layers}_{configuration.number_of_units}_{configuration.number_of_epochs}_{configuration.number_of_features}_{configuration.platform}.json"
-        weightspath = f"./models/models_weights/{self.model_name}_{configuration.number_of_layers}_{configuration.number_of_units}_{configuration.number_of_epochs}_{configuration.number_of_features}_{configuration.platform}.weights.h5"
+        filepath = f"./models/json_models/{self.model_name}_{configuration.number_of_layers}_{configuration.number_of_units}_{configuration.number_of_epochs}_{configuration.number_of_features}.json"
+        weightspath = f"./models/models_weights/{self.model_name}_{configuration.number_of_layers}_{configuration.number_of_units}_{configuration.number_of_epochs}_{configuration.number_of_features}.weights.h5"
         if not path.isfile(filepath):
             model_json = underlying_model.to_json()
             with open(filepath, "w") as json_file:

@@ -28,11 +28,11 @@ def final_custom_layer(model: keras.models.Model):
     model.add(Dense(units=1, activation="sigmoid"))
 
 
-numbers_of_layers = RangeParameter(10, 10, 10, FrameworkParameterType.NumberOfLayers)
-numbers_of_neurons = RangeParameter(10, 10, 10, FrameworkParameterType.NumberOfNeurons)
-numbers_of_epochs = RangeParameter(1, 1, 1, FrameworkParameterType.NumberOfEpochs)
+numbers_of_layers = RangeParameter(10, 20, 10, FrameworkParameterType.NumberOfLayers)
+numbers_of_neurons = RangeParameter(10, 20, 10, FrameworkParameterType.NumberOfNeurons)
+numbers_of_epochs = RangeParameter(1, 2, 1, FrameworkParameterType.NumberOfEpochs)
 numbers_of_features = RangeParameter(
-    60, 60, 10, FrameworkParameterType.NumberOfFeatures
+    60, 70, 10, FrameworkParameterType.NumberOfFeatures
 )
 
 # Define profile mode
