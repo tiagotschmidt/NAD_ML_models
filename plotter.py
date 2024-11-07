@@ -67,62 +67,126 @@ def plot(plot_list_collection: PlotListCollection, metrics_str_list: List[str]):
     os.makedirs(timestamped_dir, exist_ok=True)
 
     for metric in metrics_str_list:
+        metric_dir = os.path.join(timestamped_dir, metric)
+        os.makedirs(metric_dir, exist_ok=True)
         for snapshot_result_list in plot_list_collection.test_epoch_lists:
-            plot_metric_and_energy(snapshot_result_list, metric, "Epochs", timestamped_dir)  # type: ignore
+            plot_metric_and_energy(snapshot_result_list, metric, "Epochs", metric_dir)  # type: ignore
         for snapshot_result_list in plot_list_collection.test_features_lists:
-            plot_metric_and_energy(snapshot_result_list, metric, "Features", timestamped_dir)  # type: ignore
+            plot_metric_and_energy(snapshot_result_list, metric, "Features", metric_dir)  # type: ignore
         for snapshot_result_list in plot_list_collection.test_layers_lists:
-            plot_metric_and_energy(snapshot_result_list, metric, "Layers", timestamped_dir)  # type: ignore
+            plot_metric_and_energy(snapshot_result_list, metric, "Layers", metric_dir)  # type: ignore
         for snapshot_result_list in plot_list_collection.test_units_lists:
-            plot_metric_and_energy(snapshot_result_list, metric, "Units", timestamped_dir)  # type: ignore
+            plot_metric_and_energy(snapshot_result_list, metric, "Units", metric_dir)  # type: ignore
         for snapshot_result_list in plot_list_collection.train_epoch_lists:
-            plot_metric_and_energy(snapshot_result_list, metric, "Epocs", timestamped_dir)  # type: ignore
+            plot_metric_and_energy(snapshot_result_list, metric, "Epochs", metric_dir)  # type: ignore
         for snapshot_result_list in plot_list_collection.train_features_lists:
-            plot_metric_and_energy(snapshot_result_list, metric, "Features", timestamped_dir)  # type: ignore
+            plot_metric_and_energy(snapshot_result_list, metric, "Features", metric_dir)  # type: ignore
         for snapshot_result_list in plot_list_collection.train_layers_lists:
-            plot_metric_and_energy(snapshot_result_list, metric, "Layers", timestamped_dir)  # type: ignore
+            plot_metric_and_energy(snapshot_result_list, metric, "Layers", metric_dir)  # type: ignore
         for snapshot_result_list in plot_list_collection.train_units_lists:
-            plot_metric_and_energy(snapshot_result_list, metric, "Units", timestamped_dir)  # type: ignore
+            plot_metric_and_energy(snapshot_result_list, metric, "Units", metric_dir)  # type: ignore
 
 
 def plot_metric_and_energy(
-    config_and_results_list: tuple[ExecutionConfiguration, List[dict]],
+    config_and_results_list: tuple[ExecutionConfiguration, List[int], List[dict]],
     metric_name: str,
     hyperparameter: str,
-    timestamped_dir: str,
+    metric_dir: str,
 ):
-    (config, results_list) = config_and_results_list
-    x_values = range(len(results_list))
+    hyperparameter_dir = os.path.join(metric_dir, hyperparameter)
+    os.makedirs(hyperparameter_dir, exist_ok=True)
+
+    # print("COnfig and results:")
+    # print(config_and_results_list)
+    # print("metric_name")
+    # print(metric_name)
+    # print("hyper_paramater")
+    # print(hyperparameter)
+
+    if config_and_results_list == None:
+        return
+    (config, hyperparameter_list, results_list) = config_and_results_list
+
+    if len(results_list) == 0:
+        return
+
+    x_labels = hyperparameter_list
     metric_values = []
     energy_values = []
-    metric_errors = []
-    energy_errors = []
+    upperbound_metric_error = []
+    lowerbound_metric_error = []
 
     for result in results_list:
         metric_values.append(result[metric_name]["mean"])
         energy_values.append(result["average_energy_consumption_joules"])
-        metric_errors.append(result[metric_name]["error"])
+        upperbound_metric_error.append(
+            result[metric_name]["mean"] + result[metric_name]["error"]
+        )
+        lowerbound_metric_error.append(
+            result[metric_name]["mean"] - result[metric_name]["error"]
+        )
 
-    print("Testes")
-    print(metric_values)
-    print(energy_values)
-    print(metric_errors)
+    # print("Config:")
+    # print(config)
+    # print("Results_list:")
+    # print(results_list)
+    # print("x_values:")
+    # print(x_labels)
+    # print("metric_values:")
+    ##print(metric_values)
+    # print("energy_values:")
+    # print(energy_values)
+    # print("upperbound:")
+    # print(upperbound_metric_error)
+    # print("lowerbound:")
+    # print(lowerbound_metric_error)
 
     # Create the plot
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(8, 6), dpi=80)
 
-    plt.errorbar(
-        x_values, metric_values, yerr=metric_errors, fmt="o-", label=f"{metric_name}"
+    fig, ax1 = plt.subplots()
+
+    ax1.errorbar(
+        x_labels,
+        metric_values,
+        yerr=[lowerbound_metric_error, upperbound_metric_error],
+        fmt="o-",
+        label=f"{metric_name}",
     )
 
-    plt.xlabel(hyperparameter)
-    plt.ylabel(metric_name)
+    ax1.set_ylabel(metric_name)
+    ax1.set_xlabel(hyperparameter)
+
+    plt.xticks(x_labels)
+    plt.xlim(min(x_labels), max(x_labels))
+
+    ax2 = ax1.twinx()
+
+    color = "tab:red"
+    ax2.plot(
+        x_labels, energy_values, color=color, label="Average Energy Consumption (J)"
+    )
+    ax2.set_ylabel("Average Energy Consumption (J)", color=color)
+    ax2.tick_params(axis="y", labelcolor=color)
+
+    textstr = f"Layers: {config.number_of_layers}\nUnits: {config.number_of_units}\nEpochs: {config.number_of_epochs}\nFeatures: {config.number_of_features}\nPlatform: {config.platform.name}\nCycle: {config.cycle.name}"
+    props = dict(boxstyle="round", facecolor="wheat", alpha=0.5)
+    plt.text(
+        0.05,
+        0.95,
+        textstr,
+        transform=ax1.transAxes,
+        fontsize=10,
+        verticalalignment="top",
+        bbox=props,
+    )
+
     plt.title(f"{metric_name} and Energy Consumption")
     plt.legend()
     plt.grid(True)
 
-    custom_name = f"{metric_name}_layers_{config.number_of_layers}_units_{config.number_of_units}_epochs_{config.number_of_epochs}_features_{config.number_of_features}_{config.platform.value}_{config.cycle.value}.png"
-    filename = os.path.join(timestamped_dir, custom_name + ".png")
+    custom_name = f"{metric_name}_layers_{config.number_of_layers}_units_{config.number_of_units}_epochs_{config.number_of_epochs}_features_{config.number_of_features}_{config.platform.name}_{config.cycle.name}.png"
+    filename = os.path.join(hyperparameter_dir, custom_name)
     plt.savefig(filename)
     plt.close()
 
@@ -138,36 +202,48 @@ def separate_hyperparameters_lists(
 ):
     if configuration.cycle.value == current_lifecycle.value:
         has_found_epoch = False
-        for saved_configuration, result_list in epoch_lists:
+        for saved_configuration, hyperparameter_list, result_list in epoch_lists:
             if is_same_epoch_snapshot(configuration, saved_configuration):
                 has_found_epoch = True
+                hyperparameter_list.append(configuration.number_of_epochs)
                 result_list.append(results)
         if not has_found_epoch:
-            epoch_lists.append((configuration, [results]))
+            epoch_lists.append(
+                (configuration, [configuration.number_of_epochs], [results])
+            )
 
         has_found_features = False
-        for saved_configuration, result_list in features_lists:
+        for saved_configuration, hyperparameter_list, result_list in features_lists:
             if is_same_features_snapshot(configuration, saved_configuration):
                 has_found_features = True
+                hyperparameter_list.append(configuration.number_of_features)
                 result_list.append(results)
         if not has_found_features:
-            features_lists.append((configuration, [results]))
+            features_lists.append(
+                (configuration, [configuration.number_of_features], [results])
+            )
 
         has_found_units = False
-        for saved_configuration, result_list in units_lists:
+        for saved_configuration, hyperparameter_list, result_list in units_lists:
             if is_same_units_snapshot(configuration, saved_configuration):
                 has_found_units = True
+                hyperparameter_list.append(configuration.number_of_units)
                 result_list.append(results)
         if not has_found_units:
-            units_lists.append((configuration, [results]))
+            units_lists.append(
+                (configuration, [configuration.number_of_units], [results])
+            )
 
         has_found_layers = False
-        for saved_configuration, result_list in layer_lists:
+        for saved_configuration, hyperparameter_list, result_list in layer_lists:
             if is_same_layers_snapshot(configuration, saved_configuration):
                 has_found_layers = True
+                hyperparameter_list.append(configuration.number_of_layers)
                 result_list.append(results)
         if not has_found_layers:
-            layer_lists.append((configuration, [results]))
+            layer_lists.append(
+                (configuration, [configuration.number_of_layers], [results])
+            )
 
 
 def is_same_epoch_snapshot(

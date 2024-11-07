@@ -122,7 +122,7 @@ class EnvironmentConfiguration:
         self.log_result_pipe = log_result_pipe
 
 
-type SnapshotResultsList = List[(ExecutionConfiguration, [dict])]  # type: ignore
+type SnapshotResultsList = List[(ExecutionConfiguration, [int], [dict])]  # type: ignore
 
 
 class PlotListCollection:
@@ -140,7 +140,7 @@ class PlotListCollection:
         self.test_epoch_lists = test_epoch_lists
         self.test_units_lists = test_units_lists
         self.test_features_lists = test_features_lists
-        self.test_layers_lists = (test_layers_lists,)
+        self.test_layers_lists = test_layers_lists
         self.train_epoch_lists = train_epoch_lists
         self.train_units_lists = train_units_lists
         self.train_features_lists = train_features_lists
