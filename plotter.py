@@ -1,7 +1,10 @@
 import datetime
 import os
+from time import sleep
 from typing import List
+import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib.pyplot
 import numpy as np
 from framework_parameters import ExecutionConfiguration, Lifecycle, PlotListCollection
 
@@ -126,23 +129,7 @@ def plot_metric_and_energy(
             result[metric_name]["mean"] - result[metric_name]["error"]
         )
 
-    # print("Config:")
-    # print(config)
-    # print("Results_list:")
-    # print(results_list)
-    # print("x_values:")
-    # print(x_labels)
-    # print("metric_values:")
-    ##print(metric_values)
-    # print("energy_values:")
-    # print(energy_values)
-    # print("upperbound:")
-    # print(upperbound_metric_error)
-    # print("lowerbound:")
-    # print(lowerbound_metric_error)
-
-    # Create the plot
-    plt.figure(figsize=(8, 6), dpi=80)
+    plt.figure(figsize=(8, 6))
 
     fig, ax1 = plt.subplots()
 
@@ -151,11 +138,11 @@ def plot_metric_and_energy(
         metric_values,
         yerr=[lowerbound_metric_error, upperbound_metric_error],
         fmt="o-",
-        label=f"{metric_name}",
+        label=f"{metric_name.capitalize()}",
     )
 
-    ax1.set_ylabel(metric_name)
-    ax1.set_xlabel(hyperparameter)
+    ax1.set_ylabel(metric_name.capitalize(), labelpad=5)
+    ax1.set_xlabel(hyperparameter.capitalize(), labelpad=5)
 
     plt.xticks(x_labels)
     plt.xlim(min(x_labels), max(x_labels))
@@ -166,7 +153,7 @@ def plot_metric_and_energy(
     ax2.plot(
         x_labels, energy_values, color=color, label="Average Energy Consumption (J)"
     )
-    ax2.set_ylabel("Average Energy Consumption (J)", color=color)
+    ax2.set_ylabel("Average Energy Consumption (J)", color=color, labelpad=5)
     ax2.tick_params(axis="y", labelcolor=color)
 
     textstr = f"Layers: {config.number_of_layers}\nUnits: {config.number_of_units}\nEpochs: {config.number_of_epochs}\nFeatures: {config.number_of_features}\nPlatform: {config.platform.name}\nCycle: {config.cycle.name}"
@@ -181,14 +168,15 @@ def plot_metric_and_energy(
         bbox=props,
     )
 
-    plt.title(f"{metric_name} and Energy Consumption")
+    plt.title(f"{metric_name.capitalize()} and Energy Consumption")
     plt.legend()
     plt.grid(True)
 
-    custom_name = f"{metric_name}_layers_{config.number_of_layers}_units_{config.number_of_units}_epochs_{config.number_of_epochs}_features_{config.number_of_features}_{config.platform.name}_{config.cycle.name}.png"
+    custom_name = f"layers_{config.number_of_layers}_units_{config.number_of_units}_epochs_{config.number_of_epochs}_features_{config.number_of_features}_{config.platform.name}_{config.cycle.name}.pdf"
     filename = os.path.join(hyperparameter_dir, custom_name)
     plt.savefig(filename)
-    plt.close()
+    matplotlib.pyplot.close()
+    plt.close(fig)
 
 
 def separate_hyperparameters_lists(
