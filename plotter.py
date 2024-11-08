@@ -99,19 +99,25 @@ def plot_metric_and_energy(
     hyperparameter_dir = os.path.join(metric_dir, hyperparameter)
     os.makedirs(hyperparameter_dir, exist_ok=True)
 
-    # print("COnfig and results:")
-    # print(config_and_results_list)
-    # print("metric_name")
-    # print(metric_name)
-    # print("hyper_paramater")
-    # print(hyperparameter)
-
     if config_and_results_list == None:
         return
     (config, hyperparameter_list, results_list) = config_and_results_list
 
     if len(results_list) == 0:
         return
+
+    if hyperparameter == "Epochs":
+        custom_name = f"layers_{config.number_of_layers}_units_{config.number_of_units}_features_{config.number_of_features}_{config.platform.name}_{config.cycle.name}.pdf"
+        textstr = f"Layers: {config.number_of_layers}\nUnits: {config.number_of_units}\nFeatures: {config.number_of_features}\nPlatform: {config.platform.name}\nCycle: {config.cycle.name}"
+    elif hyperparameter == "Features":
+        custom_name = f"layers_{config.number_of_layers}_units_{config.number_of_units}_epochs_{config.number_of_epochs}_{config.platform.name}_{config.cycle.name}.pdf"
+        textstr = f"Layers: {config.number_of_layers}\nUnits: {config.number_of_units}\nEpochs: {config.number_of_epochs}\nPlatform: {config.platform.name}\nCycle: {config.cycle.name}"
+    elif hyperparameter == "Layers":
+        custom_name = f"units_{config.number_of_units}_epochs_{config.number_of_epochs}_features_{config.number_of_features}_{config.platform.name}_{config.cycle.name}.pdf"
+        textstr = f"\nUnits: {config.number_of_units}\nEpochs: {config.number_of_epochs}\nFeatures: {config.number_of_features}\nPlatform: {config.platform.name}\nCycle: {config.cycle.name}"
+    elif hyperparameter == "Units":
+        custom_name = f"layers_{config.number_of_layers}_epochs_{config.number_of_epochs}_features_{config.number_of_features}_{config.platform.name}_{config.cycle.name}.pdf"
+        textstr = f"Layers: {config.number_of_layers}\nEpochs: {config.number_of_epochs}\nFeatures: {config.number_of_features}\nPlatform: {config.platform.name}\nCycle: {config.cycle.name}"
 
     x_labels = hyperparameter_list
     metric_values = []
@@ -156,7 +162,6 @@ def plot_metric_and_energy(
     ax2.set_ylabel("Average Energy Consumption (J)", color=color, labelpad=5)
     ax2.tick_params(axis="y", labelcolor=color)
 
-    textstr = f"Layers: {config.number_of_layers}\nUnits: {config.number_of_units}\nEpochs: {config.number_of_epochs}\nFeatures: {config.number_of_features}\nPlatform: {config.platform.name}\nCycle: {config.cycle.name}"
     props = dict(boxstyle="round", facecolor="wheat", alpha=0.5)
     plt.text(
         0.05,
@@ -172,11 +177,13 @@ def plot_metric_and_energy(
     plt.legend()
     plt.grid(True)
 
-    custom_name = f"layers_{config.number_of_layers}_units_{config.number_of_units}_epochs_{config.number_of_epochs}_features_{config.number_of_features}_{config.platform.name}_{config.cycle.name}.pdf"
     filename = os.path.join(hyperparameter_dir, custom_name)
     plt.savefig(filename)
     matplotlib.pyplot.close()
     plt.close(fig)
+    plt.close()
+    plt.close("all")
+    plt.clf()
 
 
 def separate_hyperparameters_lists(
