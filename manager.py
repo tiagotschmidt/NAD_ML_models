@@ -5,6 +5,8 @@ import pandas as pd
 import logging
 import datetime
 
+from plotter import extract_plot_list_collection, plot
+
 internal_logger = logging.getLogger(__name__)
 timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 internal_log_filename = f"epp_nad_{timestamp}.log"
@@ -57,6 +59,7 @@ def profile(
         "precision",
         "recall",
     ],
+    sampling_rate: float = 1,
     preprocessed_dataset: pd.DataFrame = pd.read_csv(
         "dataset/preprocessed_binary_dataset.csv"
     ),
@@ -76,6 +79,9 @@ def profile(
     )
 
     logging.info("Starting EPPNAD.")
+
+    sample_size = int(len(preprocessed_dataset) * sampling_rate / 100)
+    preprocessed_dataset = preprocessed_dataset.sample(sample_size)
 
     start_pipe_engine_side, start_engine_pipe_manager_side = multiprocessing.Pipe()
     start_pipe_logger_side, start_logger_pipe_manager_side = multiprocessing.Pipe()
@@ -121,8 +127,26 @@ def profile(
     start_logger_pipe_manager_side.send(True)
 
     list_results = results_pipe_manager_side.recv()
-    for result in list_results:
-        print(f"->{result[0]}:{result[1]}")
+
+    #    print(
+    #       "############################# Resultado final ####################################################"
+    #  )
+
+    # print(list_results[0])
+
+    # print(
+    #    "############################# Processado final ####################################################"
+    # )
+
+    plot_list_collection = extract_plot_list_collection(list_results)
+
+    #    print(plot_list_collection)
+
+    #    print(
+    #       "############################# Processado de novo final ####################################################"
+    #  )
+
+    plot(plot_list_collection, performance_metrics_list)
 
     engine.join()
     logger.join()

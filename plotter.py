@@ -106,6 +106,9 @@ def plot_metric_and_energy(
     if len(results_list) == 0:
         return
 
+    custom_name = ""
+    textstr = ""
+
     if hyperparameter == "Epochs":
         custom_name = f"layers_{config.number_of_layers}_units_{config.number_of_units}_features_{config.number_of_features}_{config.platform.name}_{config.cycle.name}.pdf"
         textstr = f"Layers: {config.number_of_layers}\nUnits: {config.number_of_units}\nFeatures: {config.number_of_features}\nPlatform: {config.platform.name}\nCycle: {config.cycle.name}"

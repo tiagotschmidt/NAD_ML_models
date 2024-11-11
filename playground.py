@@ -64,6 +64,7 @@ profile(
     profile_mode=profile_mode,
     number_of_samples=number_of_samples,
     batch_size=batch_size,
+    sampling_rate=0.3,
     performance_metrics_list=performance_metrics_list,
     preprocessed_dataset=preprocessed_dataset,
     dataset_target_label=dataset_target_label,
