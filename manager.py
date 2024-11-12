@@ -4,8 +4,7 @@ import keras
 import pandas as pd
 import logging
 import datetime
-
-from plotter import extract_plot_list_collection, plot
+from plotter import plot
 
 internal_logger = logging.getLogger(__name__)
 timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -26,6 +25,7 @@ from framework_parameters import (
     LifecycleSelected,
     MLMode,
     Platform,
+    PlotListCollection,
     RangeParameter,
 )
 from logger import Logger
@@ -66,10 +66,7 @@ def profile(
     dataset_target_label: str = "intrusion",
     loss_metric_str: str = "binary_crossentropy",
     optimizer: str = "adam",
-):
-    #    if not isinstance(user_model_func, keras.models.Model):
-    #       raise TypeError("Input model must be a Keras model.")
-
+) -> PlotListCollection:
     configurations_list = __generate_configurations_list(
         numbers_of_layers,
         numbers_of_neurons,
@@ -128,28 +125,12 @@ def profile(
 
     list_results = results_pipe_manager_side.recv()
 
-    #    print(
-    #       "############################# Resultado final ####################################################"
-    #  )
-
-    # print(list_results[0])
-
-    # print(
-    #    "############################# Processado final ####################################################"
-    # )
-
-    plot_list_collection = extract_plot_list_collection(list_results)
-
-    #    print(plot_list_collection)
-
-    #    print(
-    #       "############################# Processado de novo final ####################################################"
-    #  )
-
-    plot(plot_list_collection, performance_metrics_list)
+    final_results = plot(list_results, performance_metrics_list)
 
     engine.join()
     logger.join()
+
+    return final_results
 
 
 def __generate_configurations_list(

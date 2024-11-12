@@ -9,12 +9,17 @@ import numpy as np
 from framework_parameters import ExecutionConfiguration, Lifecycle, PlotListCollection
 
 
-def extract_plot_list_collection(
+def plot(
+    results_list: List[tuple[ExecutionConfiguration, dict]], metrics_str_list: List[str]
+) -> PlotListCollection:
+    plot_list_collection = __assemble_plot_list_collection(results_list)
+    __create_output_directories_and_plot(plot_list_collection, metrics_str_list)
+    return plot_list_collection
+
+
+def __assemble_plot_list_collection(
     results_list: List[tuple[ExecutionConfiguration, dict]]
 ) -> PlotListCollection:
-    ### MODO TREINO
-    ### EP0CH
-
     train_epoch_lists = []
     train_features_lists = []
     train_units_lists = []
@@ -27,7 +32,7 @@ def extract_plot_list_collection(
 
     for configuration, results in results_list:
         current_lifecycle = Lifecycle.Train
-        separate_hyperparameters_lists(
+        __populate_lists_with_results(
             train_epoch_lists,
             train_features_lists,
             train_units_lists,
@@ -38,7 +43,7 @@ def extract_plot_list_collection(
         )
 
         current_lifecycle = Lifecycle.Test
-        separate_hyperparameters_lists(
+        __populate_lists_with_results(
             test_epoch_lists,
             test_features_lists,
             test_units_lists,
@@ -60,7 +65,9 @@ def extract_plot_list_collection(
     )
 
 
-def plot(plot_list_collection: PlotListCollection, metrics_str_list: List[str]):
+def __create_output_directories_and_plot(
+    plot_list_collection: PlotListCollection, metrics_str_list: List[str]
+):
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")  # type: ignore
 
     plot_results_dir = "plot_results"
@@ -73,30 +80,30 @@ def plot(plot_list_collection: PlotListCollection, metrics_str_list: List[str]):
         metric_dir = os.path.join(timestamped_dir, metric)
         os.makedirs(metric_dir, exist_ok=True)
         for snapshot_result_list in plot_list_collection.test_epoch_lists:
-            plot_metric_and_energy(snapshot_result_list, metric, "Epochs", metric_dir)  # type: ignore
+            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Epochs", metric_dir)  # type: ignore
         for snapshot_result_list in plot_list_collection.test_features_lists:
-            plot_metric_and_energy(snapshot_result_list, metric, "Features", metric_dir)  # type: ignore
+            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Features", metric_dir)  # type: ignore
         for snapshot_result_list in plot_list_collection.test_layers_lists:
-            plot_metric_and_energy(snapshot_result_list, metric, "Layers", metric_dir)  # type: ignore
+            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Layers", metric_dir)  # type: ignore
         for snapshot_result_list in plot_list_collection.test_units_lists:
-            plot_metric_and_energy(snapshot_result_list, metric, "Units", metric_dir)  # type: ignore
+            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Units", metric_dir)  # type: ignore
         for snapshot_result_list in plot_list_collection.train_epoch_lists:
-            plot_metric_and_energy(snapshot_result_list, metric, "Epochs", metric_dir)  # type: ignore
+            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Epochs", metric_dir)  # type: ignore
         for snapshot_result_list in plot_list_collection.train_features_lists:
-            plot_metric_and_energy(snapshot_result_list, metric, "Features", metric_dir)  # type: ignore
+            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Features", metric_dir)  # type: ignore
         for snapshot_result_list in plot_list_collection.train_layers_lists:
-            plot_metric_and_energy(snapshot_result_list, metric, "Layers", metric_dir)  # type: ignore
+            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Layers", metric_dir)  # type: ignore
         for snapshot_result_list in plot_list_collection.train_units_lists:
-            plot_metric_and_energy(snapshot_result_list, metric, "Units", metric_dir)  # type: ignore
+            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Units", metric_dir)  # type: ignore
 
 
-def plot_metric_and_energy(
+def __generate_metric_and_energy_line_plot(
     config_and_results_list: tuple[ExecutionConfiguration, List[int], List[dict]],
     metric_name: str,
-    hyperparameter: str,
-    metric_dir: str,
+    hyperparameter_name: str,
+    base_metric_dir: str,
 ):
-    hyperparameter_dir = os.path.join(metric_dir, hyperparameter)
+    hyperparameter_dir = os.path.join(base_metric_dir, hyperparameter_name)
     os.makedirs(hyperparameter_dir, exist_ok=True)
 
     if config_and_results_list == None:
@@ -109,16 +116,16 @@ def plot_metric_and_energy(
     custom_name = ""
     textstr = ""
 
-    if hyperparameter == "Epochs":
+    if hyperparameter_name == "Epochs":
         custom_name = f"layers_{config.number_of_layers}_units_{config.number_of_units}_features_{config.number_of_features}_{config.platform.name}_{config.cycle.name}.pdf"
         textstr = f"Layers: {config.number_of_layers}\nUnits: {config.number_of_units}\nFeatures: {config.number_of_features}\nPlatform: {config.platform.name}\nCycle: {config.cycle.name}"
-    elif hyperparameter == "Features":
+    elif hyperparameter_name == "Features":
         custom_name = f"layers_{config.number_of_layers}_units_{config.number_of_units}_epochs_{config.number_of_epochs}_{config.platform.name}_{config.cycle.name}.pdf"
         textstr = f"Layers: {config.number_of_layers}\nUnits: {config.number_of_units}\nEpochs: {config.number_of_epochs}\nPlatform: {config.platform.name}\nCycle: {config.cycle.name}"
-    elif hyperparameter == "Layers":
+    elif hyperparameter_name == "Layers":
         custom_name = f"units_{config.number_of_units}_epochs_{config.number_of_epochs}_features_{config.number_of_features}_{config.platform.name}_{config.cycle.name}.pdf"
         textstr = f"\nUnits: {config.number_of_units}\nEpochs: {config.number_of_epochs}\nFeatures: {config.number_of_features}\nPlatform: {config.platform.name}\nCycle: {config.cycle.name}"
-    elif hyperparameter == "Units":
+    elif hyperparameter_name == "Units":
         custom_name = f"layers_{config.number_of_layers}_epochs_{config.number_of_epochs}_features_{config.number_of_features}_{config.platform.name}_{config.cycle.name}.pdf"
         textstr = f"Layers: {config.number_of_layers}\nEpochs: {config.number_of_epochs}\nFeatures: {config.number_of_features}\nPlatform: {config.platform.name}\nCycle: {config.cycle.name}"
 
@@ -151,7 +158,7 @@ def plot_metric_and_energy(
     )
 
     ax1.set_ylabel(metric_name.capitalize(), labelpad=5)
-    ax1.set_xlabel(hyperparameter.capitalize(), labelpad=5)
+    ax1.set_xlabel(hyperparameter_name.capitalize(), labelpad=5)
 
     plt.xticks(x_labels)
     plt.xlim(min(x_labels), max(x_labels))
@@ -189,7 +196,7 @@ def plot_metric_and_energy(
     plt.clf()
 
 
-def separate_hyperparameters_lists(
+def __populate_lists_with_results(
     epoch_lists,
     features_lists,
     units_lists,
@@ -201,7 +208,7 @@ def separate_hyperparameters_lists(
     if configuration.cycle.value == current_lifecycle.value:
         has_found_epoch = False
         for saved_configuration, hyperparameter_list, result_list in epoch_lists:
-            if is_same_epoch_snapshot(configuration, saved_configuration):
+            if __is_same_epoch_snapshot(configuration, saved_configuration):
                 has_found_epoch = True
                 hyperparameter_list.append(configuration.number_of_epochs)
                 result_list.append(results)
@@ -212,7 +219,7 @@ def separate_hyperparameters_lists(
 
         has_found_features = False
         for saved_configuration, hyperparameter_list, result_list in features_lists:
-            if is_same_features_snapshot(configuration, saved_configuration):
+            if __is_same_features_snapshot(configuration, saved_configuration):
                 has_found_features = True
                 hyperparameter_list.append(configuration.number_of_features)
                 result_list.append(results)
@@ -223,7 +230,7 @@ def separate_hyperparameters_lists(
 
         has_found_units = False
         for saved_configuration, hyperparameter_list, result_list in units_lists:
-            if is_same_units_snapshot(configuration, saved_configuration):
+            if __is_same_units_snapshot(configuration, saved_configuration):
                 has_found_units = True
                 hyperparameter_list.append(configuration.number_of_units)
                 result_list.append(results)
@@ -234,7 +241,7 @@ def separate_hyperparameters_lists(
 
         has_found_layers = False
         for saved_configuration, hyperparameter_list, result_list in layer_lists:
-            if is_same_layers_snapshot(configuration, saved_configuration):
+            if __is_same_layers_snapshot(configuration, saved_configuration):
                 has_found_layers = True
                 hyperparameter_list.append(configuration.number_of_layers)
                 result_list.append(results)
@@ -244,7 +251,7 @@ def separate_hyperparameters_lists(
             )
 
 
-def is_same_epoch_snapshot(
+def __is_same_epoch_snapshot(
     configuration: ExecutionConfiguration, saved_configuration: ExecutionConfiguration
 ):
     return (
@@ -254,7 +261,7 @@ def is_same_epoch_snapshot(
     )
 
 
-def is_same_features_snapshot(
+def __is_same_features_snapshot(
     configuration: ExecutionConfiguration, saved_configuration: ExecutionConfiguration
 ):
     return (
@@ -264,7 +271,7 @@ def is_same_features_snapshot(
     )
 
 
-def is_same_units_snapshot(
+def __is_same_units_snapshot(
     configuration: ExecutionConfiguration, saved_configuration: ExecutionConfiguration
 ):
     return (
@@ -274,7 +281,7 @@ def is_same_units_snapshot(
     )
 
 
-def is_same_layers_snapshot(
+def __is_same_layers_snapshot(
     configuration: ExecutionConfiguration, saved_configuration: ExecutionConfiguration
 ):
     return (
