@@ -6,7 +6,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.pyplot
 import numpy as np
-from framework_parameters import ExecutionConfiguration, Lifecycle, PlotListCollection
+from .framework_parameters import ExecutionConfiguration, Lifecycle, PlotListCollection
 
 
 def plot(

@@ -4,7 +4,7 @@ import keras
 import pandas as pd
 import logging
 import datetime
-from plotter import plot
+from .plotter import plot
 
 internal_logger = logging.getLogger(__name__)
 timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -15,9 +15,9 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(message)s",
 )
 
-from execution_engine import ExecutionEngine
+from .execution_engine import ExecutionEngine
 
-from framework_parameters import (
+from .framework_parameters import (
     EnvironmentConfiguration,
     ExecutionConfiguration,
     FrameworkParameterType,
@@ -28,7 +28,7 @@ from framework_parameters import (
     PlotListCollection,
     RangeParameter,
 )
-from logger import Logger
+from .logger import Logger
 
 
 def profile(
@@ -77,7 +77,11 @@ def profile(
 
     logging.info("Starting EPPNAD.")
 
-    sample_size = int(len(preprocessed_dataset) * sampling_rate / 100)
+    if not 0 <= sampling_rate <= 1:
+        sampling_rate = 1
+        logging.info("Sampling rate must be between 0 and 1.")
+
+    sample_size = int(len(preprocessed_dataset) * sampling_rate)
     preprocessed_dataset = preprocessed_dataset.sample(sample_size)
 
     start_pipe_engine_side, start_engine_pipe_manager_side = multiprocessing.Pipe()

@@ -1,10 +1,9 @@
+import gc
 import subprocess
 import pyRAPL
 import multiprocessing
 from multiprocessing.connection import Connection
-from time import sleep
-
-from framework_parameters import Platform, ProcessSignal
+from .framework_parameters import Platform, ProcessSignal
 
 
 class Logger(multiprocessing.Process):
@@ -30,14 +29,23 @@ class Logger(multiprocessing.Process):
         gpu_power_results = []
 
         while not stop:
+            gpu_power_results = []
+            collected = gc.collect()
             (signal, platform) = self.signal_pipe.recv()
+            self.internal_logger.info(
+                "[LOGGER] Starting logging for:" + str(signal) + ";" + str(platform)
+            )
             if signal.value == ProcessSignal.Start.value:
                 if platform.value == Platform.CPU.value:
                     cpu_power_meter.begin()
 
                     (signal, platform) = self.signal_pipe.recv()
+                    self.internal_logger.info(
+                        "[LOGGER] Stop logging for:" + str(signal) + ";" + str(platform)
+                    )
                     cpu_power_meter.end()
                     self.result_pipe.send(cpu_power_meter.result.pkg[0])  # type: ignore
+                    self.internal_logger.info("[LOGGER] Sending cpu total energy.")
                 else:
                     while signal.value != ProcessSignal.Stop.value:
                         result = subprocess.run(
@@ -52,7 +60,17 @@ class Logger(multiprocessing.Process):
 
                         if self.signal_pipe.poll(timeout=0.005):
                             (signal, platform) = self.signal_pipe.recv()
+                            self.internal_logger.info(
+                                "[LOGGER] Stop logging for:"
+                                + str(signal)
+                                + ";"
+                                + str(platform)
+                            )
 
                     self.result_pipe.send(gpu_power_results)
+                    self.internal_logger.info(
+                        "[LOGGER] Sending GPU power samples. Total:"
+                        + str(len(gpu_power_results))
+                    )
             if signal.value == ProcessSignal.FinalStop.value:
                 stop = True

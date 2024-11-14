@@ -85,7 +85,6 @@ def test_process_results(execution_engine):
     processed = execution_engine._ExecutionEngine__process_results(current_results)
     assert processed["accuracy"]["mean"] == pytest.approx(0.85, 0.01)
     assert processed["loss"]["mean"] == pytest.approx(0.15, 0.01)
-    assert processed["accuracy"]["total_samples"] == 3
 
 
 def test_is_train_config(execution_engine, mock_execution_config):
@@ -101,9 +100,11 @@ def test_is_train_config(execution_engine, mock_execution_config):
     )
 
 
-def test_try_load_model_from_storage(execution_engine, mock_execution_config):
+def test_try_load_model_from_storage(
+    execution_engine, mock_model_func, mock_execution_config
+):
     (result, model) = execution_engine._ExecutionEngine__try_load_model_from_storage(
-        mock_execution_config
+        mock_model_func, mock_execution_config
     )
     assert result == False  ## no save
 

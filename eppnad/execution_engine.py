@@ -1,16 +1,15 @@
+import gc
 import multiprocessing
-from multiprocessing.connection import Connection
 from os import path
-import os
 import statistics
-from time import sleep, time
+from time import time
 from typing import List
 import keras
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
-from framework_parameters import (
+from .framework_parameters import (
     EnvironmentConfiguration,
     ExecutionConfiguration,
     Lifecycle,
@@ -57,8 +56,12 @@ class ExecutionEngine(multiprocessing.Process):
                     self.execute_configuration(configuration)
 
         self.environment.results_pipe.send(self.results_list)
+        self.internal_logger.info("[EXECUTION-ENGINE] Sending results list.")
         self.environment.log_signal_pipe.send(
             (ProcessSignal.FinalStop, configuration.platform)  # type: ignore
+        )
+        self.internal_logger.info(
+            "[EXECUTION-ENGINE] Sending logger final stop signal."
         )
 
     def execute_configuration(self, configuration):
@@ -102,6 +105,9 @@ class ExecutionEngine(multiprocessing.Process):
             self.__save_model_to_storage(underlying_model, configuration)
 
         self.results_list.append((configuration, processed_results))
+        collected = gc.collect()
+
+        print("Garbage collector: collected", "%d objects." % collected)
 
     def __execution_routine(
         self,
@@ -116,6 +122,7 @@ class ExecutionEngine(multiprocessing.Process):
         self.environment.log_signal_pipe.send(
             (ProcessSignal.Start, configuration.platform)
         )
+        self.internal_logger.info("[EXECUTION-ENGINE] Sending logger start signal.")
 
         start_time = time()  ### Measurement cycle BEGIN
 
@@ -130,13 +137,18 @@ class ExecutionEngine(multiprocessing.Process):
         self.environment.log_signal_pipe.send(
             (ProcessSignal.Stop, configuration.platform)
         )
+        self.internal_logger.info("[EXECUTION-ENGINE] Sending logger stop signal.")
 
         gpu_sampled_power_list = []  ### Energy consumption log gathering
         cpu_total_energy_micro_joules = None
         if configuration.platform.value == Platform.GPU.value:
             gpu_sampled_power_list = self.environment.log_result_pipe.recv()
+            self.internal_logger.info(
+                "[EXECUTION-ENGINE] Received GPU sample power list."
+            )
         elif configuration.platform.value == Platform.CPU.value:
             cpu_total_energy_micro_joules = self.environment.log_result_pipe.recv()
+            self.internal_logger.info("[EXECUTION-ENGINE] Received CPU total energy")
 
         elapsed_time_ms = int((end_time - start_time) * 1000)
 
@@ -144,9 +156,11 @@ class ExecutionEngine(multiprocessing.Process):
             current_results,
         )
 
-        processed_results["average_elapsed_time_ms"] = (
-            elapsed_time_ms / self.environment.number_of_samples
+        elapsed_time = elapsed_time_ms / self.environment.number_of_samples
+        self.internal_logger.info(
+            "[EXECUTION-ENGINE] Elapsed time:" + str(elapsed_time)
         )
+        processed_results["average_elapsed_time_ms"] = elapsed_time
 
         total_energy_joules = 0
 
@@ -156,8 +170,11 @@ class ExecutionEngine(multiprocessing.Process):
         if cpu_total_energy_micro_joules != None and len(gpu_sampled_power_list) == 0:
             total_energy_joules = cpu_total_energy_micro_joules / 1000000
 
-        processed_results["average_energy_consumption_joules"] = (
-            total_energy_joules / self.environment.number_of_samples
+        average_energy = total_energy_joules / self.environment.number_of_samples
+        processed_results["average_energy_consumption_joules"] = average_energy
+
+        self.internal_logger.info(
+            "[EXECUTION-ENGINE] Average energy consumption:" + str(average_energy)
         )
 
         return processed_results
@@ -171,7 +188,6 @@ class ExecutionEngine(multiprocessing.Process):
             all_metrics.update(result.keys())
 
         processed_results = {}
-        total_samples = 0
 
         for metric in all_metrics:
             metric_values = []
@@ -179,13 +195,9 @@ class ExecutionEngine(multiprocessing.Process):
                 if metric in result:
                     metric_values.append(result[metric])
 
-            total_samples = len(metric_values)
             processed_results[metric] = {
                 "mean": statistics.mean(metric_values),
-                "median": statistics.median(metric_values),
-                "std": statistics.stdev(metric_values),
                 "error": statistics.stdev(metric_values) / len(metric_values) ** 0.5,
-                "total_samples": total_samples,
             }
 
         return processed_results
@@ -210,6 +222,7 @@ class ExecutionEngine(multiprocessing.Process):
                 epochs=configuration.number_of_epochs,
                 batch_size=self.environment.batch_size,
                 validation_split=0.2,
+                verbose=1,  # type: ignore
             )
             test_results = underlying_model.evaluate(
                 X_test, y_test, verbose=1, return_dict=True  # type: ignore
