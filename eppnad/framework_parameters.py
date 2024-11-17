@@ -20,16 +20,35 @@ class ProcessSignal(Enum):
     FinalStop = 2
 
 
+class RangeMode(Enum):
+    Additive = 0
+    Multiplicative = 1
+
+
 class RangeParameter:
-    def __init__(self, start: int, end: int, stride: int, type: FrameworkParameterType):
+    def __init__(
+        self,
+        start: int,
+        end: int,
+        stride: int,
+        type: FrameworkParameterType,
+        mode: RangeMode,
+    ):
         self.start = start
         self.end = end
         self.stride = stride
         self.type = type
+        self.mode = mode
 
     def __iter__(self):
-        for i in range(self.start, self.end + 1, self.stride):
-            yield i
+        if self.mode.value == RangeMode.Additive.value:
+            for i in range(self.start, self.end + 1, self.stride):
+                yield i
+        elif self.mode.value == RangeMode.Multiplicative.value:
+            value = self.start
+            while value <= self.end + 1:
+                yield value
+                value *= self.stride
 
 
 class Platform(Enum):

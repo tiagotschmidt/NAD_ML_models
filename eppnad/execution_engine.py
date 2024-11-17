@@ -107,7 +107,7 @@ class ExecutionEngine(multiprocessing.Process):
         self.results_list.append((configuration, processed_results))
         collected = gc.collect()
 
-        print("Garbage collector: collected", "%d objects." % collected)
+        self.internal_logger.info(f"Garbage collector: collected {collected} objects.")
 
     def __execution_routine(
         self,

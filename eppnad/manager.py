@@ -26,6 +26,7 @@ from .framework_parameters import (
     MLMode,
     Platform,
     PlotListCollection,
+    RangeMode,
     RangeParameter,
 )
 from .logger import Logger
@@ -37,16 +38,16 @@ def profile(
     repeated_custom_layer_code: Callable[[keras.models.Model, int, int], None],
     final_custom_layer_code: Callable[[keras.models.Model], None],
     numbers_of_layers: RangeParameter = RangeParameter(
-        100, 300, 100, FrameworkParameterType.NumberOfLayers
+        100, 300, 100, FrameworkParameterType.NumberOfLayers, RangeMode.Additive
     ),
     numbers_of_neurons: RangeParameter = RangeParameter(
-        10, 90, 40, FrameworkParameterType.NumberOfNeurons
+        10, 90, 40, FrameworkParameterType.NumberOfNeurons, RangeMode.Additive
     ),
     numbers_of_epochs: RangeParameter = RangeParameter(
-        50, 150, 50, FrameworkParameterType.NumberOfEpochs
+        50, 150, 50, FrameworkParameterType.NumberOfEpochs, RangeMode.Additive
     ),
     numbers_of_features: RangeParameter = RangeParameter(
-        70, 10, 90, FrameworkParameterType.NumberOfFeatures
+        70, 10, 90, FrameworkParameterType.NumberOfFeatures, RangeMode.Additive
     ),
     profile_mode: MLMode = MLMode(
         LifecycleSelected.TrainAndTest, Platform.GPU, Platform.GPU
@@ -56,7 +57,6 @@ def profile(
     performance_metrics_list: List[str] = [
         "accuracy",
         "f1_score",
-        "precision",
         "recall",
     ],
     sampling_rate: float = 1,
