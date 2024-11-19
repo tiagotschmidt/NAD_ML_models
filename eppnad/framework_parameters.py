@@ -46,7 +46,7 @@ class RangeParameter:
                 yield i
         elif self.mode.value == RangeMode.Multiplicative.value:
             value = self.start
-            while value <= self.end + 1:
+            while value <= self.end:
                 yield value
                 value *= self.stride
 

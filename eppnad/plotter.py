@@ -132,33 +132,27 @@ def __generate_metric_and_energy_line_plot(
     x_labels = hyperparameter_list
     metric_values = []
     energy_values = []
-    upperbound_metric_error = []
-    lowerbound_metric_error = []
 
     for result in results_list:
         metric_values.append(result[metric_name]["mean"])
         energy_values.append(result["average_energy_consumption_joules"])
-        upperbound_metric_error.append(
-            result[metric_name]["mean"] + result[metric_name]["error"]
-        )
-        lowerbound_metric_error.append(
-            result[metric_name]["mean"] - result[metric_name]["error"]
-        )
 
     plt.figure(figsize=(8, 6))
 
     fig, ax1 = plt.subplots()
 
-    ax1.errorbar(
+    color = "tab:blue"
+    lims = (0, x_labels[-1] * 1.1)
+    ax1.plot(
         x_labels,
         metric_values,
-        yerr=[lowerbound_metric_error, upperbound_metric_error],
-        fmt="o-",
+        color=color,
         label=f"{metric_name.capitalize()}",
     )
 
     ax1.set_ylabel(metric_name.capitalize(), labelpad=5)
     ax1.set_xlabel(hyperparameter_name.capitalize(), labelpad=5)
+    ax1.set_xlim(lims)
 
     plt.xticks(x_labels)
     plt.xlim(min(x_labels), max(x_labels))
@@ -167,8 +161,12 @@ def __generate_metric_and_energy_line_plot(
 
     color = "tab:red"
     ax2.plot(
-        x_labels, energy_values, color=color, label="Average Energy Consumption (J)"
+        x_labels,
+        energy_values,
+        color=color,
+        label="Average Energy Consumption (J)",
     )
+    ax2.set_xlim(lims)
     ax2.set_ylabel("Average Energy Consumption (J)", color=color, labelpad=5)
     ax2.tick_params(axis="y", labelcolor=color)
 

@@ -70,10 +70,11 @@ class ExecutionEngine(multiprocessing.Process):
         )
 
         underlying_model = self.underlying_model_func()
-        ## TODO: implement sampling rate via test and training proportion and via proportion of the dataset
+
         X_train, y_train, X_test, y_test = self.__select_x_and_y_from_config(
             configuration
         )
+
         input_shape = (
             X_train.shape[1]
             if configuration.cycle.value == Lifecycle.Train.value
@@ -92,7 +93,8 @@ class ExecutionEngine(multiprocessing.Process):
             optimizer=self.environment.optimizer,
             metrics=self.environment.performance_metrics_list,
         )
-        underlying_model.summary()
+
+        # underlying_model.summary()
 
         processed_results = {}
 
@@ -197,7 +199,6 @@ class ExecutionEngine(multiprocessing.Process):
 
             processed_results[metric] = {
                 "mean": statistics.mean(metric_values),
-                "error": statistics.stdev(metric_values) / len(metric_values) ** 0.5,
             }
 
         return processed_results

@@ -28,23 +28,29 @@ def final_custom_layer(model: keras.models.Model):
 
 
 numbers_of_layers = RangeParameter(
-    10, 80, 2, FrameworkParameterType.NumberOfLayers, RangeMode.Multiplicative
+    1, 1, 2, FrameworkParameterType.NumberOfLayers, RangeMode.Multiplicative
 )
 numbers_of_neurons = RangeParameter(
-    10, 80, 2, FrameworkParameterType.NumberOfNeurons, RangeMode.Multiplicative
+    10, 200, 10, FrameworkParameterType.NumberOfNeurons, RangeMode.Additive
 )
 numbers_of_epochs = RangeParameter(
-    1, 81, 40, FrameworkParameterType.NumberOfEpochs, RangeMode.Additive
+    100, 100, 40, FrameworkParameterType.NumberOfEpochs, RangeMode.Additive
 )
 numbers_of_features = RangeParameter(
-    35, 93, 15, FrameworkParameterType.NumberOfFeatures, RangeMode.Additive
+    93, 93, 15, FrameworkParameterType.NumberOfFeatures, RangeMode.Additive
 )
 
-# numbers_of_layers = RangeParameter(40, 40, 4, FrameworkParameterType.NumberOfLayers)
-# numbers_of_neurons = RangeParameter(300, 300, 1, FrameworkParameterType.NumberOfNeurons)
-# numbers_of_epochs = RangeParameter(10, 10, 40, FrameworkParameterType.NumberOfEpochs)
+# numbers_of_layers = RangeParameter(
+#    10, 80, 2, FrameworkParameterType.NumberOfLayers, RangeMode.Multiplicative
+# )
+# numbers_of_neurons = RangeParameter(
+#    10, 80, 2, FrameworkParameterType.NumberOfNeurons, RangeMode.Multiplicative
+# )
+# numbers_of_epochs = RangeParameter(
+#    1, 81, 40, FrameworkParameterType.NumberOfEpochs, RangeMode.Additive
+# )
 # numbers_of_features = RangeParameter(
-#    93, 93, 15, FrameworkParameterType.NumberOfFeatures
+#    35, 93, 15, FrameworkParameterType.NumberOfFeatures, RangeMode.Additive
 # )
 
 # Define profile mode
@@ -55,9 +61,9 @@ profile_mode = MLMode(
 )
 
 # Define other parameters
-number_of_samples = 2
-batch_size = 2048
-performance_metrics_list = ["accuracy", "f1_score", "recall"]
+number_of_samples = 10
+batch_size = 32768
+performance_metrics_list = ["precision", "f1_score", "recall"]
 preprocessed_dataset = pd.read_csv("dataset/preprocessed_binary_dataset.csv")
 dataset_target_label = "intrusion"
 loss_metric_str = "binary_crossentropy"

@@ -44,7 +44,15 @@ class Logger(multiprocessing.Process):
                         "[LOGGER] Stop logging for:" + str(signal) + ";" + str(platform)
                     )
                     cpu_power_meter.end()
-                    self.result_pipe.send(cpu_power_meter.result.pkg[0])  # type: ignore
+                    total_energy_microjoules = 0
+                    if cpu_power_meter.result.pkg[0] != None:  # type: ignore
+                        total_energy_microjoules = cpu_power_meter.result.pkg[0]  # type: ignore
+                    else:
+                        self.internal_logger.warning(
+                            "[LOGGER] Registering poisonous energy information."
+                        )
+                        total_energy_microjoules = 0
+                    self.result_pipe.send(total_energy_microjoules)  # type: ignore
                     self.internal_logger.info("[LOGGER] Sending cpu total energy.")
                 else:
                     while signal.value != ProcessSignal.Stop.value:

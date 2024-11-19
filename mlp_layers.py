@@ -49,7 +49,7 @@ profile_mode = MLMode(
 
 # Define other parameters
 number_of_samples = 30
-batch_size = 2048
+batch_size = 32768
 performance_metrics_list = ["accuracy", "f1_score", "recall"]
 preprocessed_dataset = pd.read_csv("dataset/preprocessed_binary_dataset.csv")
 dataset_target_label = "intrusion"
