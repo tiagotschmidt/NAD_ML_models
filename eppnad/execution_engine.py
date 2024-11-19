@@ -18,7 +18,7 @@ from .framework_parameters import (
 )
 from keras._tf_keras.keras.models import (
     model_from_json,
-)  # saving and loading trained model
+)
 
 
 class ExecutionEngine(multiprocessing.Process):
@@ -41,7 +41,9 @@ class ExecutionEngine(multiprocessing.Process):
         _ = self.environment.start_pipe.recv()  ### Blocking recv call to wait star
         self.results_list = []
 
-        for configuration in self.configuration_list:
+        for (
+            configuration
+        ) in self.configuration_list:  ### Iterate over configuration list
             if configuration.platform.value == Platform.CPU.value:
                 with tf.device("/cpu:0"):
                     self.internal_logger.info(
@@ -56,7 +58,7 @@ class ExecutionEngine(multiprocessing.Process):
                     self.execute_configuration(configuration)
 
         self.environment.results_pipe.send(self.results_list)
-        self.internal_logger.info("[EXECUTION-ENGINE] Sending results list.")
+        self.internal_logger.info("[EXECUTION-ENGINE] Sending results list to manager.")
         self.environment.log_signal_pipe.send(
             (ProcessSignal.FinalStop, configuration.platform)  # type: ignore
         )
@@ -69,25 +71,29 @@ class ExecutionEngine(multiprocessing.Process):
             f"[EXECUTION-ENGINE] Starting execution for model {self.model_name} config: {configuration}"
         )
 
-        underlying_model = self.underlying_model_func()
+        underlying_model = self.underlying_model_func()  ### Start base user model.
 
-        X_train, y_train, X_test, y_test = self.__select_x_and_y_from_config(
-            configuration
+        X_train, y_train, X_test, y_test = (
+            self.__select_x_and_y_from_config(  ### Get dataset x,y; train,test.
+                configuration
+            )
         )
 
-        input_shape = (
+        input_shape = (  ### Get input shape.
             X_train.shape[1]
             if configuration.cycle.value == Lifecycle.Train.value
             else X_test.shape[1]
         )
 
-        underlying_model = self.__assemble_model_for_config(
-            underlying_model,
-            configuration,
-            input_shape,
+        underlying_model = (
+            self.__assemble_model_for_config(  ### Get from storage or assemble ML model
+                underlying_model,
+                configuration,
+                input_shape,
+            )
         )
 
-        underlying_model.compile(
+        underlying_model.compile(  ### Compile model
             jit_compile=False,  # type: ignore
             loss=self.environment.loss_metric_str,
             optimizer=self.environment.optimizer,
@@ -95,8 +101,6 @@ class ExecutionEngine(multiprocessing.Process):
         )
 
         # underlying_model.summary()
-
-        processed_results = {}
 
         processed_results = self.__execution_routine(
             underlying_model, configuration, X_train, y_train, X_test, y_test
@@ -152,23 +156,22 @@ class ExecutionEngine(multiprocessing.Process):
             cpu_total_energy_micro_joules = self.environment.log_result_pipe.recv()
             self.internal_logger.info("[EXECUTION-ENGINE] Received CPU total energy")
 
-        elapsed_time_ms = int((end_time - start_time) * 1000)
+        total_elapsed_time_s = end_time - start_time
 
         processed_results = self.__process_results(
             current_results,
         )
 
-        elapsed_time = elapsed_time_ms / self.environment.number_of_samples
         self.internal_logger.info(
-            "[EXECUTION-ENGINE] Elapsed time:" + str(elapsed_time)
+            "[EXECUTION-ENGINE] Total Elapsed time (s):" + str(total_elapsed_time_s)
         )
-        processed_results["average_elapsed_time_ms"] = elapsed_time
+        processed_results["total_elapsed_time_s"] = total_elapsed_time_s
 
         total_energy_joules = 0
 
         if cpu_total_energy_micro_joules == None and len(gpu_sampled_power_list) != 0:
             average_power_consumption = statistics.mean(gpu_sampled_power_list)
-            total_energy_joules = average_power_consumption * elapsed_time_ms / 1000
+            total_energy_joules = average_power_consumption * total_elapsed_time_s
         if cpu_total_energy_micro_joules != None and len(gpu_sampled_power_list) == 0:
             total_energy_joules = cpu_total_energy_micro_joules / 1000000
 
@@ -222,7 +225,7 @@ class ExecutionEngine(multiprocessing.Process):
                 y_train,
                 epochs=configuration.number_of_epochs,
                 batch_size=self.environment.batch_size,
-                validation_split=0.2,
+                validation_split=0,
                 verbose=1,  # type: ignore
             )
             test_results = underlying_model.evaluate(

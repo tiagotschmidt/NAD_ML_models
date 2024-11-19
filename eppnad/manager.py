@@ -129,7 +129,7 @@ def profile(
 
     list_results = results_pipe_manager_side.recv()
 
-    final_results = plot(list_results, performance_metrics_list)
+    final_results = plot(list_results, performance_metrics_list, number_of_samples)
 
     engine.join()
     logger.join()

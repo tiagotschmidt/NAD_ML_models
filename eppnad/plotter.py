@@ -10,14 +10,18 @@ from .framework_parameters import ExecutionConfiguration, Lifecycle, PlotListCol
 
 
 def plot(
-    results_list: List[tuple[ExecutionConfiguration, dict]], metrics_str_list: List[str]
+    results_list: List[tuple[ExecutionConfiguration, dict]],
+    metrics_str_list: List[str],
+    number_of_samples: int,
 ) -> PlotListCollection:
-    plot_list_collection = __assemble_plot_list_collection(results_list)
-    __create_output_directories_and_plot(plot_list_collection, metrics_str_list)
+    plot_list_collection = __get_plot_list_collection(results_list)
+    __create_output_directories_and_plot(
+        plot_list_collection, metrics_str_list, number_of_samples
+    )
     return plot_list_collection
 
 
-def __assemble_plot_list_collection(
+def __get_plot_list_collection(
     results_list: List[tuple[ExecutionConfiguration, dict]]
 ) -> PlotListCollection:
     train_epoch_lists = []
@@ -66,7 +70,9 @@ def __assemble_plot_list_collection(
 
 
 def __create_output_directories_and_plot(
-    plot_list_collection: PlotListCollection, metrics_str_list: List[str]
+    plot_list_collection: PlotListCollection,
+    metrics_str_list: List[str],
+    number_of_samples: int,
 ):
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")  # type: ignore
 
@@ -80,21 +86,21 @@ def __create_output_directories_and_plot(
         metric_dir = os.path.join(timestamped_dir, metric)
         os.makedirs(metric_dir, exist_ok=True)
         for snapshot_result_list in plot_list_collection.test_epoch_lists:
-            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Epochs", metric_dir)  # type: ignore
+            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Epochs", metric_dir, number_of_samples)  # type: ignore
         for snapshot_result_list in plot_list_collection.test_features_lists:
-            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Features", metric_dir)  # type: ignore
+            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Features", metric_dir, number_of_samples)  # type: ignore
         for snapshot_result_list in plot_list_collection.test_layers_lists:
-            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Layers", metric_dir)  # type: ignore
+            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Layers", metric_dir, number_of_samples)  # type: ignore
         for snapshot_result_list in plot_list_collection.test_units_lists:
-            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Units", metric_dir)  # type: ignore
+            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Units", metric_dir, number_of_samples)  # type: ignore
         for snapshot_result_list in plot_list_collection.train_epoch_lists:
-            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Epochs", metric_dir)  # type: ignore
+            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Epochs", metric_dir, number_of_samples)  # type: ignore
         for snapshot_result_list in plot_list_collection.train_features_lists:
-            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Features", metric_dir)  # type: ignore
+            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Features", metric_dir, number_of_samples)  # type: ignore
         for snapshot_result_list in plot_list_collection.train_layers_lists:
-            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Layers", metric_dir)  # type: ignore
+            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Layers", metric_dir, number_of_samples)  # type: ignore
         for snapshot_result_list in plot_list_collection.train_units_lists:
-            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Units", metric_dir)  # type: ignore
+            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Units", metric_dir, number_of_samples)  # type: ignore
 
 
 def __generate_metric_and_energy_line_plot(
@@ -102,6 +108,7 @@ def __generate_metric_and_energy_line_plot(
     metric_name: str,
     hyperparameter_name: str,
     base_metric_dir: str,
+    number_of_samples: int,
 ):
     hyperparameter_dir = os.path.join(base_metric_dir, hyperparameter_name)
     os.makedirs(hyperparameter_dir, exist_ok=True)
@@ -118,16 +125,16 @@ def __generate_metric_and_energy_line_plot(
 
     if hyperparameter_name == "Epochs":
         custom_name = f"layers_{config.number_of_layers}_units_{config.number_of_units}_features_{config.number_of_features}_{config.platform.name}_{config.cycle.name}.pdf"
-        textstr = f"Layers: {config.number_of_layers}\nUnits: {config.number_of_units}\nFeatures: {config.number_of_features}\nPlatform: {config.platform.name}\nCycle: {config.cycle.name}"
+        textstr = f"Samples: {number_of_samples}\nLayers: {config.number_of_layers}\nUnits: {config.number_of_units}\nFeatures: {config.number_of_features}\nPlatform: {config.platform.name}\nCycle: {config.cycle.name}"
     elif hyperparameter_name == "Features":
         custom_name = f"layers_{config.number_of_layers}_units_{config.number_of_units}_epochs_{config.number_of_epochs}_{config.platform.name}_{config.cycle.name}.pdf"
-        textstr = f"Layers: {config.number_of_layers}\nUnits: {config.number_of_units}\nEpochs: {config.number_of_epochs}\nPlatform: {config.platform.name}\nCycle: {config.cycle.name}"
+        textstr = f"Samples: {number_of_samples}\nLayers: {config.number_of_layers}\nUnits: {config.number_of_units}\nEpochs: {config.number_of_epochs}\nPlatform: {config.platform.name}\nCycle: {config.cycle.name}"
     elif hyperparameter_name == "Layers":
         custom_name = f"units_{config.number_of_units}_epochs_{config.number_of_epochs}_features_{config.number_of_features}_{config.platform.name}_{config.cycle.name}.pdf"
-        textstr = f"\nUnits: {config.number_of_units}\nEpochs: {config.number_of_epochs}\nFeatures: {config.number_of_features}\nPlatform: {config.platform.name}\nCycle: {config.cycle.name}"
+        textstr = f"Samples: {number_of_samples}\nUnits: {config.number_of_units}\nEpochs: {config.number_of_epochs}\nFeatures: {config.number_of_features}\nPlatform: {config.platform.name}\nCycle: {config.cycle.name}"
     elif hyperparameter_name == "Units":
         custom_name = f"layers_{config.number_of_layers}_epochs_{config.number_of_epochs}_features_{config.number_of_features}_{config.platform.name}_{config.cycle.name}.pdf"
-        textstr = f"Layers: {config.number_of_layers}\nEpochs: {config.number_of_epochs}\nFeatures: {config.number_of_features}\nPlatform: {config.platform.name}\nCycle: {config.cycle.name}"
+        textstr = f"Samples: {number_of_samples}\nLayers: {config.number_of_layers}\nEpochs: {config.number_of_epochs}\nFeatures: {config.number_of_features}\nPlatform: {config.platform.name}\nCycle: {config.cycle.name}"
 
     x_labels = hyperparameter_list
     metric_values = []
@@ -160,14 +167,21 @@ def __generate_metric_and_energy_line_plot(
     ax2 = ax1.twinx()
 
     color = "tab:red"
+    energy_consumption_label = ""
+    if config.cycle.value == Lifecycle.Train.value:
+        energy_consumption_label = "Training Epoch Average Energy Consumption (J)"
+    else:
+        energy_consumption_label = "Test Evaluation Average Energy Consumption (J)"
+
     ax2.plot(
         x_labels,
         energy_values,
         color=color,
-        label="Average Energy Consumption (J)",
+        label="Energy Consumption (J)",
     )
+
     ax2.set_xlim(lims)
-    ax2.set_ylabel("Average Energy Consumption (J)", color=color, labelpad=5)
+    ax2.set_ylabel(energy_consumption_label, color=color, labelpad=5)
     ax2.tick_params(axis="y", labelcolor=color)
 
     props = dict(boxstyle="round", facecolor="wheat", alpha=0.5)
