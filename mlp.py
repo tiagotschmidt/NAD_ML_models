@@ -40,19 +40,6 @@ numbers_of_features = RangeParameter(
     13, 93, 20, FrameworkParameterType.NumberOfFeatures, RangeMode.Additive
 )
 
-# numbers_of_layers = RangeParameter(
-#    10, 80, 2, FrameworkParameterType.NumberOfLayers, RangeMode.Multiplicative
-# )
-# numbers_of_neurons = RangeParameter(
-#    10, 80, 2, FrameworkParameterType.NumberOfNeurons, RangeMode.Multiplicative
-# )
-# numbers_of_epochs = RangeParameter(
-#    1, 81, 40, FrameworkParameterType.NumberOfEpochs, RangeMode.Additive
-# )
-# numbers_of_features = RangeParameter(
-#    35, 93, 15, FrameworkParameterType.NumberOfFeatures, RangeMode.Additive
-# )
-
 # Define profile mode
 profile_mode = MLMode(
     LifecycleSelected.TrainAndTest,

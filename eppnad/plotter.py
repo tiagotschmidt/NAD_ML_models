@@ -157,6 +157,8 @@ def __generate_metric_and_energy_line_plot(
         label=f"{metric_name.capitalize()}",
     )
 
+    plt.setp(ax1.get_xticklabels(), rotation=30, horizontalalignment="right")
+
     ax1.set_ylabel(metric_name.capitalize(), labelpad=5)
     ax1.set_xlabel(hyperparameter_name.capitalize(), labelpad=5)
     ax1.set_xlim(lims)
@@ -179,6 +181,8 @@ def __generate_metric_and_energy_line_plot(
         color=color,
         label="Energy Consumption (J)",
     )
+
+    plt.setp(ax2.get_xticklabels(), rotation=30, horizontalalignment="right")
 
     ax2.set_xlim(lims)
     ax2.set_ylabel(energy_consumption_label, color=color, labelpad=5)

@@ -28,13 +28,13 @@ def final_custom_layer(model: keras.models.Model):
 
 
 numbers_of_layers = RangeParameter(
-    10, 320, 2, FrameworkParameterType.NumberOfLayers, RangeMode.Multiplicative
+    1, 10, 1, FrameworkParameterType.NumberOfLayers, RangeMode.Additive
 )
 numbers_of_neurons = RangeParameter(
     50, 50, 2, FrameworkParameterType.NumberOfNeurons, RangeMode.Multiplicative
 )
 numbers_of_epochs = RangeParameter(
-    40, 40, 40, FrameworkParameterType.NumberOfEpochs, RangeMode.Additive
+    100, 100, 40, FrameworkParameterType.NumberOfEpochs, RangeMode.Additive
 )
 numbers_of_features = RangeParameter(
     93, 93, 15, FrameworkParameterType.NumberOfFeatures, RangeMode.Additive
@@ -50,7 +50,7 @@ profile_mode = MLMode(
 # Define other parameters
 number_of_samples = 30
 batch_size = 32768
-performance_metrics_list = ["accuracy", "f1_score", "recall"]
+performance_metrics_list = ["precision", "f1_score", "recall"]
 preprocessed_dataset = pd.read_csv("dataset/preprocessed_binary_dataset.csv")
 dataset_target_label = "intrusion"
 loss_metric_str = "binary_crossentropy"

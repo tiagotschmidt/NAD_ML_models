@@ -28,7 +28,7 @@ def final_custom_layer(model: keras.models.Model):
 
 
 numbers_of_layers = RangeParameter(
-    50, 50, 2, FrameworkParameterType.NumberOfLayers, RangeMode.Multiplicative
+    1, 1, 2, FrameworkParameterType.NumberOfLayers, RangeMode.Multiplicative
 )
 numbers_of_neurons = RangeParameter(
     1, 201, 10, FrameworkParameterType.NumberOfNeurons, RangeMode.Additive
@@ -50,7 +50,7 @@ profile_mode = MLMode(
 # Define other parameters
 number_of_samples = 30
 batch_size = 32768
-performance_metrics_list = ["accuracy", "f1_score", "recall"]
+performance_metrics_list = ["precision", "f1_score", "recall"]
 preprocessed_dataset = pd.read_csv("dataset/preprocessed_binary_dataset.csv")
 dataset_target_label = "intrusion"
 loss_metric_str = "binary_crossentropy"
@@ -58,7 +58,7 @@ optimizer = "adam"
 
 profile(
     Sequential,
-    "MLP_layers",
+    "MLP_neurons",
     repeated_custom_layer_code=repeated_custom_layer,
     final_custom_layer_code=final_custom_layer,
     numbers_of_layers=numbers_of_layers,
