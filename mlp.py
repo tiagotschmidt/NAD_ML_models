@@ -28,16 +28,16 @@ def final_custom_layer(model: keras.models.Model):
 
 
 numbers_of_layers = RangeParameter(
-    1, 1, 2, FrameworkParameterType.NumberOfLayers, RangeMode.Multiplicative
+    1, 4, 1, FrameworkParameterType.NumberOfLayers, RangeMode.Additive
 )
 numbers_of_neurons = RangeParameter(
-    10, 200, 10, FrameworkParameterType.NumberOfNeurons, RangeMode.Additive
+    10, 210, 50, FrameworkParameterType.NumberOfNeurons, RangeMode.Additive
 )
 numbers_of_epochs = RangeParameter(
-    100, 100, 40, FrameworkParameterType.NumberOfEpochs, RangeMode.Additive
+    10, 90, 20, FrameworkParameterType.NumberOfEpochs, RangeMode.Additive
 )
 numbers_of_features = RangeParameter(
-    93, 93, 15, FrameworkParameterType.NumberOfFeatures, RangeMode.Additive
+    13, 93, 20, FrameworkParameterType.NumberOfFeatures, RangeMode.Additive
 )
 
 # numbers_of_layers = RangeParameter(

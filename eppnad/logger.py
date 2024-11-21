@@ -30,7 +30,6 @@ class Logger(multiprocessing.Process):
 
         while not stop:
             gpu_power_results = []
-            collected = gc.collect()
             (signal, platform) = self.signal_pipe.recv()
             self.internal_logger.info(
                 "[LOGGER] Starting logging for:" + str(signal) + ";" + str(platform)
@@ -45,13 +44,14 @@ class Logger(multiprocessing.Process):
                     )
                     cpu_power_meter.end()
                     total_energy_microjoules = 0
-                    if cpu_power_meter.result.pkg[0] != None:  # type: ignore
+                    if cpu_power_meter != None and cpu_power_meter.result != None and cpu_power_meter.result.pkg != None and cpu_power_meter.result.pkg[0] != None:  # type: ignore
                         total_energy_microjoules = cpu_power_meter.result.pkg[0]  # type: ignore
                     else:
                         self.internal_logger.warning(
                             "[LOGGER] Registering poisonous energy information."
                         )
                         total_energy_microjoules = 0
+                        cpu_power_meter = pyRAPL.Measurement("measurement")
                     self.result_pipe.send(total_energy_microjoules)  # type: ignore
                     self.internal_logger.info("[LOGGER] Sending cpu total energy.")
                 else:

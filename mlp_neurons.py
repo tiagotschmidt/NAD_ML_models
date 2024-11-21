@@ -31,10 +31,10 @@ numbers_of_layers = RangeParameter(
     50, 50, 2, FrameworkParameterType.NumberOfLayers, RangeMode.Multiplicative
 )
 numbers_of_neurons = RangeParameter(
-    50, 50, 2, FrameworkParameterType.NumberOfNeurons, RangeMode.Multiplicative
+    1, 201, 10, FrameworkParameterType.NumberOfNeurons, RangeMode.Additive
 )
 numbers_of_epochs = RangeParameter(
-    1, 256, 2, FrameworkParameterType.NumberOfEpochs, RangeMode.Additive
+    100, 100, 2, FrameworkParameterType.NumberOfEpochs, RangeMode.Additive
 )
 numbers_of_features = RangeParameter(
     93, 93, 15, FrameworkParameterType.NumberOfFeatures, RangeMode.Additive
