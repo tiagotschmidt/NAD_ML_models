@@ -100,7 +100,7 @@ class ExecutionEngine(multiprocessing.Process):
             metrics=self.environment.performance_metrics_list,
         )
 
-        # underlying_model.summary()
+        underlying_model.summary()
 
         processed_results = self.__execution_routine(
             underlying_model, configuration, X_train, y_train, X_test, y_test
@@ -273,7 +273,10 @@ class ExecutionEngine(multiprocessing.Process):
                 self.internal_logger.info(
                     "[EXECUTION-ENGINE] Subject model was not avaible in storage. Assembling model."
                 )
-        for i in range(0, configuration.number_of_layers):
+        self.environment.first_custom_layer_code(
+            underlying_model, configuration.number_of_units, x_train_shape
+        )
+        for i in range(0, configuration.number_of_layers - 1):
             self.environment.repeated_custom_layer_code(
                 underlying_model, configuration.number_of_units, x_train_shape
             )

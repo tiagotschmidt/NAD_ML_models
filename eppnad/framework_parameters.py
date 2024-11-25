@@ -112,6 +112,7 @@ class ExecutionConfiguration:
 class EnvironmentConfiguration:
     def __init__(
         self,
+        first_custom_layer_code: Callable[[keras.models.Model, int, int], None],
         repeated_custom_layer_code: Callable[[keras.models.Model, int, int], None],
         final_custom_layer_code: Callable[[keras.models.Model], None],
         number_of_samples: int,
@@ -126,6 +127,7 @@ class EnvironmentConfiguration:
         log_signal_pipe: Connection,
         log_result_pipe: Connection,
     ):
+        self.first_custom_layer_code = first_custom_layer_code
         self.repeated_custom_layer_code = repeated_custom_layer_code
         self.final_custom_layer_code = final_custom_layer_code
         self.number_of_samples = number_of_samples

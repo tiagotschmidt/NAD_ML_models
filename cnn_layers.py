@@ -1,7 +1,13 @@
 import os
 import keras
 from keras._tf_keras.keras.models import Sequential
-from keras._tf_keras.keras.layers import Dense
+from keras._tf_keras.keras.layers import (
+    Dropout,
+    Convolution1D,
+    MaxPooling1D,
+    Dense,
+    Flatten,
+)
 import pandas as pd
 from eppnad.framework_parameters import (
     FrameworkParameterType,
@@ -20,19 +26,32 @@ os.environ["GLOG_minloglevel"] = "2"
 
 
 def first_layer(model: keras.models.Model, number_of_units, input_shape):
-    model.add(Dense(units=number_of_units, input_dim=input_shape, activation="relu"))
+    model.add(
+        Convolution1D(
+            number_of_units, 3, activation="relu", input_shape=(input_shape, 1)
+        )
+    )
 
 
 def repeated_layer(model: keras.models.Model, number_of_units, input_shape):
-    model.add(Dense(units=number_of_units, input_dim=input_shape, activation="relu"))
+    model.add(
+        Convolution1D(
+            number_of_units,
+            3,
+            activation="relu",
+        )
+    )
+    model.add(MaxPooling1D(2))
+    model.add(Dropout(0.1))
 
 
 def final_layer(model: keras.models.Model):
+    model.add(Flatten())
     model.add(Dense(units=1, activation="sigmoid"))
 
 
 numbers_of_layers = RangeParameter(
-    1, 1, 2, FrameworkParameterType.NumberOfLayers, RangeMode.Multiplicative
+    1, 10, 1, FrameworkParameterType.NumberOfLayers, RangeMode.Additive
 )
 numbers_of_neurons = RangeParameter(
     50, 50, 2, FrameworkParameterType.NumberOfNeurons, RangeMode.Multiplicative
@@ -41,7 +60,7 @@ numbers_of_epochs = RangeParameter(
     100, 100, 40, FrameworkParameterType.NumberOfEpochs, RangeMode.Additive
 )
 numbers_of_features = RangeParameter(
-    3, 93, 10, FrameworkParameterType.NumberOfFeatures, RangeMode.Additive
+    93, 93, 15, FrameworkParameterType.NumberOfFeatures, RangeMode.Additive
 )
 
 # Define profile mode
@@ -62,7 +81,7 @@ optimizer = "adam"
 
 profile(
     Sequential,
-    "MLP_features",
+    "cnn_test_layers",
     first_custom_layer_code=first_layer,
     repeated_custom_layer_code=repeated_layer,
     final_custom_layer_code=final_layer,

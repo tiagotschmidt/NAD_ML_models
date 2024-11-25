@@ -36,6 +36,7 @@ def profile(
     user_model_func,
     user_model_name: str,
     repeated_custom_layer_code: Callable[[keras.models.Model, int, int], None],
+    first_custom_layer_code: Callable[[keras.models.Model, int, int], None],
     final_custom_layer_code: Callable[[keras.models.Model], None],
     numbers_of_layers: RangeParameter = RangeParameter(
         100, 300, 100, FrameworkParameterType.NumberOfLayers, RangeMode.Additive
@@ -91,6 +92,7 @@ def profile(
     results_pipe_manager_side, results_pipe_engine_side = multiprocessing.Pipe()
 
     environment = EnvironmentConfiguration(
+        first_custom_layer_code,
         repeated_custom_layer_code,
         final_custom_layer_code,
         number_of_samples,
