@@ -1,7 +1,13 @@
 import os
 import keras
 from keras._tf_keras.keras.models import Sequential
-from keras._tf_keras.keras.layers import Dense
+from keras._tf_keras.keras.layers import (
+    Dense,
+    Convolution1D,
+    MaxPooling1D,
+    Dropout,
+    Flatten,
+)
 import pandas as pd
 from eppnad.framework_parameters import (
     FrameworkParameterType,
@@ -20,14 +26,27 @@ os.environ["GLOG_minloglevel"] = "2"
 
 
 def first_layer(model: keras.models.Model, number_of_units, input_shape):
-    model.add(Dense(units=number_of_units, input_dim=input_shape, activation="relu"))
+    model.add(
+        Convolution1D(
+            number_of_units, 3, activation="relu", input_shape=(input_shape, 1)
+        )
+    )
 
 
 def repeated_layer(model: keras.models.Model, number_of_units, input_shape):
-    model.add(Dense(units=number_of_units, input_dim=input_shape, activation="relu"))
+    model.add(
+        Convolution1D(
+            number_of_units,
+            3,
+            activation="relu",
+        )
+    )
 
 
 def final_layer(model: keras.models.Model):
+    model.add(MaxPooling1D(2))
+    model.add(Dropout(0.1))
+    model.add(Flatten())
     model.add(Dense(units=1, activation="sigmoid"))
 
 

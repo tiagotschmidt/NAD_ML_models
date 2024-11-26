@@ -41,11 +41,11 @@ def repeated_layer(model: keras.models.Model, number_of_units, input_shape):
             activation="relu",
         )
     )
-    model.add(MaxPooling1D(2))
-    model.add(Dropout(0.1))
 
 
 def final_layer(model: keras.models.Model):
+    model.add(MaxPooling1D(2))
+    model.add(Dropout(0.1))
     model.add(Flatten())
     model.add(Dense(units=1, activation="sigmoid"))
 
@@ -53,7 +53,7 @@ def final_layer(model: keras.models.Model):
 numbers_of_layers = RangeParameter(
     1, 10, 1, FrameworkParameterType.NumberOfLayers, RangeMode.Additive
 )
-numbers_of_neurons = RangeParameter(
+numbers_of_units = RangeParameter(
     50, 50, 2, FrameworkParameterType.NumberOfNeurons, RangeMode.Multiplicative
 )
 numbers_of_epochs = RangeParameter(
@@ -86,7 +86,7 @@ profile(
     repeated_custom_layer_code=repeated_layer,
     final_custom_layer_code=final_layer,
     numbers_of_layers=numbers_of_layers,
-    numbers_of_neurons=numbers_of_neurons,
+    numbers_of_units=numbers_of_units,
     numbers_of_epochs=numbers_of_epochs,
     numbers_of_features=numbers_of_features,
     profile_mode=profile_mode,

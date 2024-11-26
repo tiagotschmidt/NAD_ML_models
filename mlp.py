@@ -34,7 +34,7 @@ def final_layer(model: keras.models.Model):
 numbers_of_layers = RangeParameter(
     1, 3, 1, FrameworkParameterType.NumberOfLayers, RangeMode.Additive
 )
-numbers_of_neurons = RangeParameter(
+numbers_of_units = RangeParameter(
     10, 210, 50, FrameworkParameterType.NumberOfNeurons, RangeMode.Additive
 )
 numbers_of_epochs = RangeParameter(
@@ -67,7 +67,7 @@ profile(
     repeated_custom_layer_code=repeated_layer,
     final_custom_layer_code=final_layer,
     numbers_of_layers=numbers_of_layers,
-    numbers_of_neurons=numbers_of_neurons,
+    numbers_of_units=numbers_of_units,
     numbers_of_epochs=numbers_of_epochs,
     numbers_of_features=numbers_of_features,
     profile_mode=profile_mode,

@@ -47,13 +47,15 @@ class ExecutionEngine(multiprocessing.Process):
             if configuration.platform.value == Platform.CPU.value:
                 with tf.device("/cpu:0"):
                     self.internal_logger.info(
-                        "[EXECUTION-ENGINE] Starting execution on CPU."
+                        "[EXECUTION-ENGINE] Starting execution on CPU:"
+                        + self.model_name
                     )
                     self.execute_configuration(configuration)
             else:
                 with tf.device("/gpu:0"):
                     self.internal_logger.info(
-                        "[EXECUTION-ENGINE] Starting execution on GPU."
+                        "[EXECUTION-ENGINE] Starting execution on GPU:"
+                        + self.model_name
                     )
                     self.execute_configuration(configuration)
 

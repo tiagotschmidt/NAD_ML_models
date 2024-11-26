@@ -3,6 +3,7 @@ from ..framework_parameters import (
     LifecycleSelected,
     MLMode,
     Platform,
+    RangeMode,
     RangeParameter,
 )
 from ..manager import __generate_configurations_list
@@ -13,16 +14,16 @@ def test_generate_configurations_list():
     profile_mode = MLMode(cycle=LifecycleSelected.OnlyTest, test_platform=Platform.CPU)
     configurations = __generate_configurations_list(
         numbers_of_layers=RangeParameter(
-            1, 3, 1, FrameworkParameterType.NumberOfLayers
+            1, 3, 1, FrameworkParameterType.NumberOfLayers, RangeMode.Additive
         ),
-        numbers_of_neurons=RangeParameter(
-            2, 4, 1, FrameworkParameterType.NumberOfNeurons
+        numbers_of_units=RangeParameter(
+            2, 4, 1, FrameworkParameterType.NumberOfNeurons, RangeMode.Additive
         ),
         numbers_of_epochs=RangeParameter(
-            3, 5, 1, FrameworkParameterType.NumberOfEpochs
+            3, 5, 1, FrameworkParameterType.NumberOfEpochs, RangeMode.Additive
         ),
         numbers_of_features=RangeParameter(
-            4, 6, 1, FrameworkParameterType.NumberOfFeatures
+            4, 6, 1, FrameworkParameterType.NumberOfFeatures, RangeMode.Additive
         ),
         profile_mode=profile_mode,
     )
@@ -34,16 +35,16 @@ def test_generate_configurations_list():
     profile_mode = MLMode(LifecycleSelected.OnlyTrain, train_platform=Platform.GPU)
     configurations = __generate_configurations_list(
         numbers_of_layers=RangeParameter(
-            1, 2, 1, FrameworkParameterType.NumberOfLayers
+            1, 2, 1, FrameworkParameterType.NumberOfLayers, RangeMode.Additive
         ),
-        numbers_of_neurons=RangeParameter(
-            2, 3, 1, FrameworkParameterType.NumberOfNeurons
+        numbers_of_units=RangeParameter(
+            2, 3, 1, FrameworkParameterType.NumberOfNeurons, RangeMode.Additive
         ),
         numbers_of_epochs=RangeParameter(
-            3, 4, 1, FrameworkParameterType.NumberOfEpochs
+            3, 4, 1, FrameworkParameterType.NumberOfEpochs, RangeMode.Additive
         ),
         numbers_of_features=RangeParameter(
-            4, 5, 1, FrameworkParameterType.NumberOfFeatures
+            4, 5, 1, FrameworkParameterType.NumberOfFeatures, RangeMode.Additive
         ),
         profile_mode=profile_mode,
     )
@@ -55,16 +56,16 @@ def test_generate_configurations_list():
     profile_mode = MLMode(LifecycleSelected.TrainAndTest, Platform.CPU, Platform.GPU)
     configurations = __generate_configurations_list(
         numbers_of_layers=RangeParameter(
-            1, 2, 1, FrameworkParameterType.NumberOfLayers
+            1, 2, 1, FrameworkParameterType.NumberOfLayers, RangeMode.Additive
         ),
-        numbers_of_neurons=RangeParameter(
-            2, 3, 1, FrameworkParameterType.NumberOfNeurons
+        numbers_of_units=RangeParameter(
+            2, 3, 1, FrameworkParameterType.NumberOfNeurons, RangeMode.Additive
         ),
         numbers_of_epochs=RangeParameter(
-            3, 4, 1, FrameworkParameterType.NumberOfEpochs
+            3, 4, 1, FrameworkParameterType.NumberOfEpochs, RangeMode.Additive
         ),
         numbers_of_features=RangeParameter(
-            4, 5, 1, FrameworkParameterType.NumberOfFeatures
+            4, 5, 1, FrameworkParameterType.NumberOfFeatures, RangeMode.Additive
         ),
         profile_mode=profile_mode,
     )

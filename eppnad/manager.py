@@ -41,7 +41,7 @@ def profile(
     numbers_of_layers: RangeParameter = RangeParameter(
         100, 300, 100, FrameworkParameterType.NumberOfLayers, RangeMode.Additive
     ),
-    numbers_of_neurons: RangeParameter = RangeParameter(
+    numbers_of_units: RangeParameter = RangeParameter(
         10, 90, 40, FrameworkParameterType.NumberOfNeurons, RangeMode.Additive
     ),
     numbers_of_epochs: RangeParameter = RangeParameter(
@@ -70,7 +70,7 @@ def profile(
 ) -> PlotListCollection:
     configurations_list = __generate_configurations_list(
         numbers_of_layers,
-        numbers_of_neurons,
+        numbers_of_units,
         numbers_of_epochs,
         numbers_of_features,
         profile_mode,
@@ -141,7 +141,7 @@ def profile(
 
 def __generate_configurations_list(
     numbers_of_layers: RangeParameter,
-    numbers_of_neurons: RangeParameter,
+    numbers_of_units: RangeParameter,
     numbers_of_epochs: RangeParameter,
     numbers_of_features: RangeParameter,
     profile_mode: MLMode,
@@ -149,7 +149,7 @@ def __generate_configurations_list(
     return_list = []
     if profile_mode.cycle.value == LifecycleSelected.OnlyTest.value:
         for number_of_layers in numbers_of_layers:
-            for number_of_neurons in numbers_of_neurons:
+            for number_of_neurons in numbers_of_units:
                 for number_of_epochs in numbers_of_epochs:
                     for number_of_features in numbers_of_features:
                         return_list.append(
@@ -164,7 +164,7 @@ def __generate_configurations_list(
                         )
     elif profile_mode.cycle.value == LifecycleSelected.OnlyTrain.value:
         for number_of_layers in numbers_of_layers:
-            for number_of_neurons in numbers_of_neurons:
+            for number_of_neurons in numbers_of_units:
                 for number_of_epochs in numbers_of_epochs:
                     for number_of_features in numbers_of_features:
                         return_list.append(
@@ -179,7 +179,7 @@ def __generate_configurations_list(
                         )
     elif profile_mode.cycle.value == LifecycleSelected.TrainAndTest.value:
         for number_of_layers in numbers_of_layers:
-            for number_of_neurons in numbers_of_neurons:
+            for number_of_neurons in numbers_of_units:
                 for number_of_epochs in numbers_of_epochs:
                     for number_of_features in numbers_of_features:
                         return_list.append(
@@ -193,7 +193,7 @@ def __generate_configurations_list(
                             )
                         )
         for number_of_layers in numbers_of_layers:
-            for number_of_neurons in numbers_of_neurons:
+            for number_of_neurons in numbers_of_units:
                 for number_of_epochs in numbers_of_epochs:
                     for number_of_features in numbers_of_features:
                         return_list.append(
