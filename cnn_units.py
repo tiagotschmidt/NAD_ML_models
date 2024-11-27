@@ -81,7 +81,7 @@ optimizer = "adam"
 
 profile(
     Sequential,
-    "MLP_neurons",
+    "cnn_units",
     first_custom_layer_code=first_layer,
     repeated_custom_layer_code=repeated_layer,
     final_custom_layer_code=final_layer,
