@@ -58,7 +58,7 @@ profile_mode = MLMode(
 
 # Define other parameters
 number_of_samples = 10
-batch_size = 8192
+batch_size = 4096
 performance_metrics_list = ["precision", "f1_score", "recall"]
 preprocessed_dataset = pd.read_csv("dataset/preprocessed_binary_dataset.csv")
 dataset_target_label = "intrusion"
@@ -67,7 +67,7 @@ optimizer = "adam"
 
 profile(
     Sequential,
-    "MLP_layers",
+    "lstm_layers",
     first_custom_layer_code=first_layer,
     repeated_custom_layer_code=repeated_layer,
     final_custom_layer_code=final_layer,
