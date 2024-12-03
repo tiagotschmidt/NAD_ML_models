@@ -51,7 +51,7 @@ def profile(
         70, 10, 90, FrameworkParameterType.NumberOfFeatures, RangeMode.Additive
     ),
     profile_mode: MLMode = MLMode(
-        LifecycleSelected.TrainAndTest, Platform.GPU, Platform.GPU
+        LifecycleSelected.TrainAndTest, Platform.GPU, Platform.CPU
     ),
     number_of_samples: int = 30,
     batch_size: int = 32,
