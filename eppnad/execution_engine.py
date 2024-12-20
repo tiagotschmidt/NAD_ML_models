@@ -204,6 +204,7 @@ class ExecutionEngine(multiprocessing.Process):
 
             processed_results[metric] = {
                 "mean": statistics.mean(metric_values),
+                "error": statistics.stdev(metric_values) / len(metric_values) ** 0.5,
             }
 
         return processed_results

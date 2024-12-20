@@ -139,10 +139,12 @@ def __generate_metric_and_energy_line_plot(
     x_labels = hyperparameter_list
     metric_values = []
     energy_values = []
+    metric_errors = []
 
     for result in results_list:
         metric_values.append(result[metric_name]["mean"])
         energy_values.append(result["average_energy_consumption_joules"])
+        metric_errors.append(result[metric_name]["error"])
 
     plt.figure(figsize=(8, 6))
 
@@ -150,12 +152,6 @@ def __generate_metric_and_energy_line_plot(
 
     color = "tab:blue"
     lims = (0, x_labels[-1] * 1.1)
-    ax1.plot(
-        x_labels,
-        metric_values,
-        color=color,
-        label=f"{metric_name.capitalize()}",
-    )
 
     plt.setp(ax1.get_xticklabels(), rotation=30, horizontalalignment="right")
 
@@ -175,13 +171,6 @@ def __generate_metric_and_energy_line_plot(
     else:
         energy_consumption_label = "Test Evaluation Average Energy Consumption (J)"
 
-    ax2.plot(
-        x_labels,
-        energy_values,
-        color=color,
-        label="Energy Consumption (J)",
-    )
-
     plt.setp(ax2.get_xticklabels(), rotation=30, horizontalalignment="right")
 
     ax2.set_xlim(lims)
@@ -190,17 +179,34 @@ def __generate_metric_and_energy_line_plot(
 
     props = dict(boxstyle="round", facecolor="wheat", alpha=0.5)
     plt.text(
-        0.05,
-        0.95,
+        0.01,
+        0.01,
         textstr,
         transform=ax1.transAxes,
         fontsize=10,
-        verticalalignment="top",
+        verticalalignment="bottom",
         bbox=props,
     )
 
+    ax1.errorbar(
+        x=x_labels,
+        y=metric_values,
+        yerr=metric_errors,
+        fmt="o-",
+        label=f"{metric_name.capitalize()}",
+        capsize=5,
+    )
+    ax1.legend(loc=1)
+
+    ax2.plot(
+        x_labels,
+        energy_values,
+        color=color,
+        label="Energy Consumption (J)",
+    )
+    ax2.legend(loc=4)
+
     plt.title(f"{metric_name.capitalize()} and Energy Consumption")
-    plt.legend()
     plt.grid(True)
 
     filename = os.path.join(hyperparameter_dir, custom_name)
