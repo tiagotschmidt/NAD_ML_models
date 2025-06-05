@@ -1,5 +1,4 @@
 from enum import Enum
-from multiprocessing import Queue
 from multiprocessing.connection import Connection
 from typing import Callable, List, Tuple
 

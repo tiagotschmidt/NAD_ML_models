@@ -1,0 +1,37 @@
+# environment.yml
+# Defines the Conda environment for the EPPNAD project.
+# To create the environment, run: conda env create -f environment.yml
+# To activate it, run: conda activate nad-framework
+
+name: eppnad
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  # Core Python and Environment
+  - python=3.10
+  - pip
+
+  # Machine Learning & Data Handling
+  # Based on your requirements.txt
+  - tensorflow
+  - pandas
+  - scikit-learn
+  - numpy
+  - pynvml
+
+  # Plotting & Visualization
+  - matplotlib
+  - seaborn
+
+  # Development & Testing Tools
+  - pytest
+  - pytest-cov
+  - black # For code formatting
+
+  # Pip-specific packages
+  # For dependencies not available or best handled by pip
+  - pip:
+    - pyJoules==0.5.1
+    - pyRAPL==0.2.3.1
