@@ -4,17 +4,9 @@ from unittest.mock import Mock, patch
 import numpy as np
 import tensorflow as tf
 from multiprocessing import Pipe
-from framework_parameters import (
-    ExecutionConfiguration,
-    EnvironmentConfiguration,
-    Platform,
-    Lifecycle,
-    ProcessSignal,
-)
-import keras
+from eppnad.framework_parameters import ExecutionConfiguration, Lifecycle
+from eppnad.manager import EnvironmentConfiguration, ExecutionEngine, Platform
 from keras._tf_keras.keras.models import Sequential
-
-from ..execution_engine import ExecutionEngine
 
 
 @pytest.fixture
@@ -27,6 +19,7 @@ def mock_environment():
     env.number_of_samples = 10
     env.repeated_custom_layer_code = Mock()
     env.final_custom_layer_code = Mock()
+    env.first_custom_layer_code = Mock()
     env.results_pipe, _ = Pipe()
     return env
 

@@ -51,16 +51,16 @@ def final_layer(model: keras.models.Model):
 
 
 numbers_of_layers = RangeParameter(
-    1, 3, 1, FrameworkParameterType.NumberOfLayers, RangeMode.Additive
+    1, 1, 1, FrameworkParameterType.NumberOfLayers, RangeMode.Additive
 )
 numbers_of_units = RangeParameter(
-    10, 210, 50, FrameworkParameterType.NumberOfNeurons, RangeMode.Additive
+    10, 10, 50, FrameworkParameterType.NumberOfNeurons, RangeMode.Additive
 )
 numbers_of_epochs = RangeParameter(
     90, 90, 20, FrameworkParameterType.NumberOfEpochs, RangeMode.Additive
 )
 numbers_of_features = RangeParameter(
-    13, 93, 20, FrameworkParameterType.NumberOfFeatures, RangeMode.Additive
+    93, 93, 20, FrameworkParameterType.NumberOfFeatures, RangeMode.Additive
 )
 
 # Define profile mode
@@ -71,7 +71,7 @@ profile_mode = MLMode(
 )
 
 # Define other parameters
-number_of_samples = 10
+number_of_samples = 2
 batch_size = 8192
 performance_metrics_list = ["precision", "f1_score", "recall"]
 preprocessed_dataset = pd.read_csv("dataset/preprocessed_binary_dataset.csv")

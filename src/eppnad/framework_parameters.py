@@ -1,7 +1,7 @@
 from enum import Enum
 from multiprocessing import Queue
 from multiprocessing.connection import Connection
-from typing import Callable, List
+from typing import Callable, List, Tuple
 
 import keras
 import pandas as pd
@@ -143,7 +143,7 @@ class EnvironmentConfiguration:
         self.log_result_pipe = log_result_pipe
 
 
-type SnapshotResultsList = List[(ExecutionConfiguration, [int], [dict])]  # type: ignore
+SnapshotResultsList = List[Tuple[ExecutionConfiguration, List[int], List[dict]]]  # type: ignore
 
 
 class PlotListCollection:

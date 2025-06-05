@@ -1,12 +1,11 @@
-from ..framework_parameters import (
-    FrameworkParameterType,
+from scripts.first_version_experiments.cnn.cnn import (
     LifecycleSelected,
     MLMode,
     Platform,
     RangeMode,
     RangeParameter,
 )
-from ..manager import __generate_configurations_list
+from eppnad.manager import FrameworkParameterType, __generate_configurations_list
 
 
 def test_generate_configurations_list():
