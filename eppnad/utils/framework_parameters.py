@@ -25,29 +25,34 @@ class RangeMode(Enum):
 
 
 class RangeParameter:
-    def __init__(
-        self,
+    def __init__(self, item_list: List):  # type: ignore
+        self._iterable_list = item_list
+
+    @classmethod
+    def from_range(
+        cls,
         start: int,
         end: int,
         stride: int,
         type: FrameworkParameterType,
         mode: RangeMode,
     ):
-        self.start = start
-        self.end = end
-        self.stride = stride
-        self.type = type
-        self.mode = mode
+        _iterable_list = []
+        # if stride == 0:
+        #     return RangeParameter(_iterable_list)
+        if mode.value == RangeMode.Additive.value:
+            _iterable_list = list(range(start, end + 1, stride))
+        elif mode.value == RangeMode.Multiplicative.value:
+            value = start
+            while value <= end:
+                _iterable_list.append(value)
+                value *= stride
+
+        return RangeParameter(_iterable_list)
 
     def __iter__(self):
-        if self.mode.value == RangeMode.Additive.value:
-            for i in range(self.start, self.end + 1, self.stride):
-                yield i
-        elif self.mode.value == RangeMode.Multiplicative.value:
-            value = self.start
-            while value <= self.end:
-                yield value
-                value *= self.stride
+        for item in self._iterable_list:
+            yield item
 
 
 class Platform(Enum):
