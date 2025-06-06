@@ -16,6 +16,7 @@ init:
 setup:
 	@echo "Setting up conda environment..."
 	conda env create -f environment.yml
+	pip install -e .
 
 clean:
 	@echo "Cleaning up..."

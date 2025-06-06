@@ -43,10 +43,16 @@ class RangeParameter:
         if mode.value == RangeMode.Additive.value:
             _iterable_list = list(range(start, end + 1, stride))
         elif mode.value == RangeMode.Multiplicative.value:
+            if start == 0:
+                raise ValueError("Multiplicative mode start cannot be 0") 
+            if stride == 0:
+                raise ValueError("Multiplicative mode stride cannot be 0") 
             value = start
             while value <= end:
                 _iterable_list.append(value)
                 value *= stride
+                if stride == 1:
+                    break
 
         return RangeParameter(_iterable_list)
 

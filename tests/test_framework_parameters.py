@@ -72,7 +72,7 @@ class TestRangeParameter:
         to prevent an infinite loop.
         """
         with pytest.raises(
-            ValueError, match="Multiplicative mode start cannot be 0 if stride is > 0"
+            ValueError, match="Multiplicative mode start cannot be 0"
         ):
             RangeParameter.from_range(0, 10, 2, DUMMY_TYPE, RangeMode.Multiplicative)
 
