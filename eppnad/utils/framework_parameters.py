@@ -2,20 +2,23 @@
 This module contains the definitions for framework parameters.
 """
 
-from enum import Enum
+from enum import Enum, Flag, auto
 from multiprocessing.connection import Connection
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import keras
+import numpy as np
 import pandas as pd
 
 
 class FrameworkParameterType(Enum):
     """Enumeration for the different types of hyperparameters supported by the framework."""
-    NumberOfLayers = 0
-    NumberOfNeurons = 1
-    NumberOfEpochs = 2
-    NumberOfFeatures = 4
+
+    Layers = 0
+    Neurons = 1
+    Epochs = 2
+    Features = 4
+    SamplingRate = 5
 
 
 class ProcessSignal(Enum):
@@ -26,6 +29,7 @@ class ProcessSignal(Enum):
 
 class RangeMode(Enum):
     """Enumeration for the mode of range generation (additive or multiplicative)."""
+
     Additive = 0
     Multiplicative = 1
 
@@ -37,6 +41,7 @@ class RangeParameter:
     the `from_range` classmethod factory, which generates the list based on
     a specified start, end, and stride.
     """
+
     def __init__(self, item_list: List[Any]):
         """Initializes the RangeParameter with a pre-defined list of items."""
         self._iterable_list = item_list
@@ -50,7 +55,7 @@ class RangeParameter:
         # 'type' is unused in this method but kept for API consistency.
         type: FrameworkParameterType,
         mode: RangeMode,
-    ) -> 'RangeParameter':
+    ) -> "RangeParameter":
         """Constructs a RangeParameter by generating a list of values.
 
         Args:
@@ -95,27 +100,83 @@ class RangeParameter:
             yield item
 
 
+class PercentageRangeParameter(RangeParameter):
+    """A specialized RangeParameter that only accepts float values between 0.0 and 1.0.
+
+    This class ensures that all contained values are valid percentages, raising
+    an error upon initialization if any value is out of bounds.
+    """
+
+    def __init__(self, item_list: List[float]):
+        """Initializes the PercentageRangeParameter, validating each item.
+
+        Args:
+            item_list: A list of float values, where each value must be
+                       between 0.0 and 1.0 (inclusive).
+
+        Raises:
+            ValueError: If any item in the list is outside the [0.0, 1.0] range.
+        """
+        for item in item_list:
+            if not (0.0 <= item <= 1.0):
+                raise ValueError(
+                    f"Invalid percentage. All items must be between 0.0 and 1.0, "
+                    f"but found: {item}"
+                )
+        # If all items are valid, call the parent class's __init__
+        super().__init__(item_list)
+
+    @classmethod
+    def from_steps(cls, num_steps: int) -> "PercentageRangeParameter":
+        """Constructs a PercentageRangeParameter with evenly spaced values.
+
+        Generates a specified number of steps from 0.0 to 1.0, inclusive.
+
+        Args:
+            num_steps: The total number of steps to generate (e.g., 11 gives
+                       0.0, 0.1, 0.2, ..., 1.0).
+
+        Returns:
+            An instance of PercentageRangeParameter.
+
+        Raises:
+            ValueError: If num_steps is less than 2.
+        """
+        if num_steps < 2:
+            raise ValueError("num_steps must be 2 or greater to define a range.")
+
+        # Use numpy.linspace to generate evenly spaced float values
+        _iterable_list = np.linspace(0.0, 1.0, num_steps).tolist()
+        return cls(_iterable_list)
+
+
 class Platform(Enum):
     """Enumeration for the execution platform (CPU or GPU)."""
+
     CPU = 0
     GPU = 1
 
 
 class Lifecycle(Enum):
     """Enumeration for the execution lifecycle phase (Train or Test)."""
+
     Train = 0
     Test = 1
 
 
-class LifecycleSelected(Enum):
-    """Enumeration for the selected lifecycle combination."""
-    OnlyTrain = 0
-    OnlyTest = 1
-    TrainAndTest = 2
+class LifecycleSelected(Flag):
+    """
+    Indicates the lifecycle of the profiling.
+    """
+
+    ONLY_TRAIN = auto()
+    ONLY_TEST = auto()
+    TRAIN_AND_TEST = ONLY_TRAIN | ONLY_TEST
 
 
-class MLMode:
+class ProfileMode:
     """Data class to hold the selected ML lifecycle and platform configuration."""
+
     def __init__(
         self,
         cycle: LifecycleSelected,
