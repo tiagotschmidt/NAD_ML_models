@@ -28,6 +28,8 @@ dependencies:
   # Development & Testing Tools
   - pytest
   - pytest-cov
+  - pytest-mock
+  - pytest-timeout
   - black # For code formatting
 
   # Pip-specific packages
