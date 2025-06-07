@@ -2,7 +2,7 @@
 This module defines the data class for a single execution's configuration.
 """
 
-from eppnad.utils.framework_parameters import Lifecycle, Platform
+from eppnad.utils.framework_parameters import LifeCycle, Platform
 
 
 class ExecutionConfiguration:
@@ -22,7 +22,7 @@ class ExecutionConfiguration:
         features: int,
         sampling_rate: float,
         platform: Platform,
-        cycle: Lifecycle,
+        cycle: LifeCycle,
     ):
         """
         Initializes the ExecutionConfiguration with a specific set of hyperparameters.

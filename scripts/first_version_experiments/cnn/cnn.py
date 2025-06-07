@@ -90,7 +90,7 @@ profile(
     numbers_of_epochs=numbers_of_epochs,
     numbers_of_features=numbers_of_features,
     profile_mode=profile_mode,
-    number_of_samples=number_of_samples,
+    statistical_samples=number_of_samples,
     batch_size=batch_size,
     sampling_rate=1,
     performance_metrics_list=performance_metrics_list,

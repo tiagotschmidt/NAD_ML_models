@@ -11,6 +11,8 @@ import pandas as pd
 # Type hint for the lambda functions that define model layers.
 # The callable should accept the Keras model, the number of neurons, and the input dimension.
 ModelLayerLambda = Callable[[keras.models.Model, int, int], None]
+# The callable should accept the Keras model.
+ModelFinalLayerLambda = Callable[[keras.models.Model], None]
 
 
 class ModelExecutionConfig:

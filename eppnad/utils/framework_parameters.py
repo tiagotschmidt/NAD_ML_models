@@ -157,14 +157,7 @@ class Platform(Enum):
     GPU = 1
 
 
-class Lifecycle(Enum):
-    """Enumeration for the execution lifecycle phase (Train or Test)."""
-
-    Train = 0
-    Test = 1
-
-
-class LifecycleSelected(Flag):
+class LifeCycle(Flag):
     """
     Indicates the lifecycle of the profiling.
     """
@@ -179,7 +172,7 @@ class ProfileMode:
 
     def __init__(
         self,
-        cycle: LifecycleSelected,
+        cycle: LifeCycle,
         train_platform: Optional[Platform] = None,
         test_platform: Optional[Platform] = None,
     ):

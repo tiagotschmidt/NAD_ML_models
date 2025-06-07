@@ -9,13 +9,10 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
-from .framework_parameters import (
-    EnvironmentConfiguration,
-    ExecutionConfiguration,
-    Lifecycle,
-    Platform,
-    ProcessSignal,
-)
+
+from eppnad.utils.execution_configuration import ExecutionConfiguration
+from eppnad.utils.framework_parameters import LifeCycle, Platform, ProcessSignal
+from eppnad.utils.model_execution_config import ModelExecutionConfig
 from keras._tf_keras.keras.models import (
     model_from_json,
 )
@@ -25,20 +22,22 @@ class ExecutionEngine(multiprocessing.Process):
     def __init__(
         self,
         configuration_list: List[ExecutionConfiguration],
-        model_func,
+        model_func: keras.models.Model,
         model_name: str,
-        environment: EnvironmentConfiguration,
+        environment: ModelExecutionConfig,
         internal_logger,
     ):
         super(ExecutionEngine, self).__init__()
-        self.underlying_model_func = model_func
+        self.model_function = model_func
         self.model_name = model_name
         self.configuration_list = configuration_list
-        self.environment = environment
+        self.model_execution_configuration = environment
         self.internal_logger = internal_logger
 
     def run(self):
-        _ = self.environment.start_pipe.recv()  ### Blocking recv call to wait star
+        _ = (
+            self.model_execution_configuration.start_pipe.recv()
+        )  ### Blocking recv call to wait star
         self.results_list = []
 
         for (
@@ -59,9 +58,9 @@ class ExecutionEngine(multiprocessing.Process):
                     )
                     self.execute_configuration(configuration)
 
-        self.environment.results_pipe.send(self.results_list)
+        self.model_execution_configuration.results_pipe.send(self.results_list)
         self.internal_logger.info("[EXECUTION-ENGINE] Sending results list to manager.")
-        self.environment.log_signal_pipe.send(
+        self.model_execution_configuration.log_signal_pipe.send(
             (ProcessSignal.FinalStop, configuration.platform)  # type: ignore
         )
         self.internal_logger.info(
@@ -73,7 +72,7 @@ class ExecutionEngine(multiprocessing.Process):
             f"[EXECUTION-ENGINE] Starting execution for model {self.model_name} config: {configuration}"
         )
 
-        underlying_model = self.underlying_model_func()  ### Start base user model.
+        underlying_model = self.model_function()  ### Start base user model.
 
         X_train, y_train, X_test, y_test = (
             self.__select_x_and_y_from_config(  ### Get dataset x,y; train,test.
@@ -83,7 +82,7 @@ class ExecutionEngine(multiprocessing.Process):
 
         input_shape = (  ### Get input shape.
             X_train.shape[1]
-            if configuration.cycle.value == Lifecycle.Train.value
+            if LifeCycle.ONLY_TRAIN in configuration.cycle
             else X_test.shape[1]
         )
 
@@ -97,9 +96,9 @@ class ExecutionEngine(multiprocessing.Process):
 
         underlying_model.compile(  ### Compile model
             jit_compile=False,  # type: ignore
-            loss=self.environment.loss_metric_str,
-            optimizer=self.environment.optimizer,
-            metrics=self.environment.performance_metrics_list,
+            loss=self.model_execution_configuration.loss_metric_str,
+            optimizer=self.model_execution_configuration.optimizer,
+            metrics=self.model_execution_configuration.performance_metrics_list,
         )
 
         underlying_model.summary()
@@ -127,14 +126,14 @@ class ExecutionEngine(multiprocessing.Process):
         y_test: np.ndarray[np.floating],  # type: ignore
     ) -> dict:
         current_results = []
-        self.environment.log_signal_pipe.send(
+        self.model_execution_configuration.log_signal_pipe.send(
             (ProcessSignal.Start, configuration.platform)
         )
         self.internal_logger.info("[EXECUTION-ENGINE] Sending logger start signal.")
 
         start_time = time()  ### Measurement cycle BEGIN
 
-        for i in range(0, self.environment.number_of_samples):
+        for i in range(0, self.model_execution_configuration.number_of_samples):
             test_results = self.__execute_sample(
                 underlying_model, configuration, X_train, y_train, X_test, y_test
             )
@@ -142,7 +141,7 @@ class ExecutionEngine(multiprocessing.Process):
 
         end_time = time()  ### Measuremente cycle END
 
-        self.environment.log_signal_pipe.send(
+        self.model_execution_configuration.log_signal_pipe.send(
             (ProcessSignal.Stop, configuration.platform)
         )
         self.internal_logger.info("[EXECUTION-ENGINE] Sending logger stop signal.")
@@ -150,12 +149,16 @@ class ExecutionEngine(multiprocessing.Process):
         gpu_sampled_power_list = []  ### Energy consumption log gathering
         cpu_total_energy_micro_joules = None
         if configuration.platform.value == Platform.GPU.value:
-            gpu_sampled_power_list = self.environment.log_result_pipe.recv()
+            gpu_sampled_power_list = (
+                self.model_execution_configuration.log_result_pipe.recv()
+            )
             self.internal_logger.info(
                 "[EXECUTION-ENGINE] Received GPU sample power list."
             )
         elif configuration.platform.value == Platform.CPU.value:
-            cpu_total_energy_micro_joules = self.environment.log_result_pipe.recv()
+            cpu_total_energy_micro_joules = (
+                self.model_execution_configuration.log_result_pipe.recv()
+            )
             self.internal_logger.info("[EXECUTION-ENGINE] Received CPU total energy")
 
         total_elapsed_time_s = end_time - start_time
@@ -177,7 +180,9 @@ class ExecutionEngine(multiprocessing.Process):
         if cpu_total_energy_micro_joules != None and len(gpu_sampled_power_list) == 0:
             total_energy_joules = cpu_total_energy_micro_joules / 1000000
 
-        average_energy = total_energy_joules / self.environment.number_of_samples
+        average_energy = (
+            total_energy_joules / self.model_execution_configuration.number_of_samples
+        )
         processed_results["average_energy_consumption_joules"] = average_energy
 
         self.internal_logger.info(
@@ -210,7 +215,7 @@ class ExecutionEngine(multiprocessing.Process):
         return processed_results
 
     def __is_train_config(self, configuration) -> bool:
-        return configuration.cycle.value == Lifecycle.Train.value
+        return configuration.cycle.value == LifeCycle.Train.value
 
     def __execute_sample(
         self,
@@ -222,12 +227,12 @@ class ExecutionEngine(multiprocessing.Process):
         y_test,
     ) -> dict:  # type: ignore
         test_results = {}
-        if configuration.cycle.value == Lifecycle.Train.value:
+        if configuration.cycle.value == LifeCycle.Train.value:
             _ = underlying_model.fit(
                 X_train,
                 y_train,
                 epochs=configuration.number_of_epochs,
-                batch_size=self.environment.batch_size,
+                batch_size=self.model_execution_configuration.batch_size,
                 validation_split=0,
                 verbose=1,  # type: ignore
             )
@@ -235,7 +240,7 @@ class ExecutionEngine(multiprocessing.Process):
                 X_test, y_test, verbose=1, return_dict=True  # type: ignore
             )
             return test_results
-        elif configuration.cycle.value == Lifecycle.Test.value:
+        elif configuration.cycle.value == LifeCycle.Test.value:
             test_results = underlying_model.evaluate(
                 X_test, y_test, verbose=1, return_dict=True  # type: ignore
             )
@@ -251,7 +256,7 @@ class ExecutionEngine(multiprocessing.Process):
     ]:
         (X_train, y_train, X_test, y_test) = (
             self.__get_x_and_y(configuration.number_of_features)
-            if configuration.cycle.value == Lifecycle.Train.value
+            if configuration.cycle.value == LifeCycle.Train.value
             else self.__get_full_dataset(configuration.number_of_features)
         )
 
@@ -263,7 +268,7 @@ class ExecutionEngine(multiprocessing.Process):
         configuration: ExecutionConfiguration,
         x_train_shape: int,
     ) -> keras.models.Model:
-        if configuration.cycle.value == Lifecycle.Test.value:
+        if configuration.cycle.value == LifeCycle.Test.value:
             (load_sucess, candidate_model) = self.__try_load_model_from_storage(
                 underlying_model, configuration
             )
@@ -276,14 +281,14 @@ class ExecutionEngine(multiprocessing.Process):
                 self.internal_logger.info(
                     "[EXECUTION-ENGINE] Subject model was not avaible in storage. Assembling model."
                 )
-        self.environment.first_custom_layer_code(
+        self.model_execution_configuration.first_custom_layer_code(
             underlying_model, configuration.number_of_units, x_train_shape
         )
         for i in range(0, configuration.number_of_layers - 1):
-            self.environment.repeated_custom_layer_code(
+            self.model_execution_configuration.repeated_custom_layer_code(
                 underlying_model, configuration.number_of_units, x_train_shape
             )
-        self.environment.final_custom_layer_code(underlying_model)
+        self.model_execution_configuration.final_custom_layer_code(underlying_model)
         return underlying_model
 
     def __get_x_and_y(self, number_of_features: int) -> tuple[
@@ -292,7 +297,7 @@ class ExecutionEngine(multiprocessing.Process):
         np.ndarray[np.floating],  # type: ignore
         np.ndarray[np.floating],  # type: ignore
     ]:
-        preprocessed_data = self.environment.dataset
+        preprocessed_data = self.model_execution_configuration.dataset
 
         original_number_of_features = preprocessed_data.shape[1] - 1
         current_number_of_features = (
@@ -302,7 +307,9 @@ class ExecutionEngine(multiprocessing.Process):
         )
 
         features = preprocessed_data.iloc[:, 0:current_number_of_features].values
-        target = preprocessed_data[[self.environment.dataset_target_label]].values
+        target = preprocessed_data[
+            [self.model_execution_configuration.dataset_target_label]
+        ].values
 
         X_train, X_test, y_train, y_test = train_test_split(
             features, target, test_size=0.2, random_state=42
@@ -317,7 +324,7 @@ class ExecutionEngine(multiprocessing.Process):
         return (X_train, y_train, X_test, y_test)
 
     def __get_full_dataset(self, number_of_features: int) -> tuple:
-        preprocessed_data = self.environment.dataset
+        preprocessed_data = self.model_execution_configuration.dataset
 
         original_number_of_features = preprocessed_data.shape[1] - 1
         current_number_of_features = (
@@ -327,7 +334,9 @@ class ExecutionEngine(multiprocessing.Process):
         )
 
         features = preprocessed_data.iloc[:, 0:current_number_of_features].values
-        target = preprocessed_data[[self.environment.dataset_target_label]].values
+        target = preprocessed_data[
+            [self.model_execution_configuration.dataset_target_label]
+        ].values
 
         X_test = np.asarray(features).astype(np.float32)
         Y_test = np.asarray(target).astype(np.float32)
