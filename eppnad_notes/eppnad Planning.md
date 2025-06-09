@@ -1,6 +1,6 @@
-# Project Evolution: From a Graduation Work to Published Library
+# Project Evolution: From Graduation Work to Published Library
 
-This document outlines the roadmap for extending the project. The primary goals are to extend the research paper for journal submission and to refactor the associated Python framework into a high-quality, reusable library.
+This document outlines the revised roadmap for extending the project. The primary goals are to extend the research paper for journal submission and to refactor the associated Python framework into a high-quality, reusable library.
 
 ---
 
@@ -8,95 +8,121 @@ This document outlines the roadmap for extending the project. The primary goals 
 
 The first step is to clean up the repository, establish a professional structure, and automate the development environment setup.
 
-### 1.1. New Repository Name
+### 1.1. New Repository Structure
+- [x] Reorganize the project files and directories to follow a standard Python project layout.
 
-- [ ] Choose a new, descriptive name for the repository.
-  - Suggestions: `nad-framework`, `eppnad`, `neuradetect`.
-  - *Decision*: `nad-framework` (placeholder)
-
-### 1.2. New Repository Structure
-
-- [x] Reorganize the project files and directories. The new structure will follow a standard Python project layout to improve clarity and maintainability, as shown below.
-
-    ```markdown
-    nad-framework/
-    ├── .github/workflows/
-    ├── data/
-    ├── examples/
-    ├── src/
-    │   └── nad_framework/
-    │       ├── core/
-    │       ├── models/
-    │       └── utils/
-    ├── tests/
-    ├── .gitignore
-    ├── LICENSE
-    ├── Makefile
-    ├── pyproject.toml
-    ├── README.md
-    └── environment.yml
-    ```
-
-### 1.3. Automated Development Environment
-
+### 1.2. Automated Development Environment
 - [x] Create `environment.yml` for reproducible Conda environments.
-- [x] Create/update `Makefile` to automate common tasks like `setup`, `install`, and `test`.
+- [x] Create/update a `Makefile` to automate common tasks like `setup`, `install`, and `test`.
+
+### 1.3. Establish the Pip Package
+- [x] Create `pyproject.toml` to define the package metadata and dependencies, making it installable via `pip`.
 
 ---
 
-## 🛠️ Phase 2: Code Refactoring and Framework Development
+## 🛠️ Phase 2: A Practical Refactoring Plan
 
-Refactor the existing code into a robust, modular, and extensible framework with the goal of publishing it as a library.
+Refactor the existing, scattered scripts into a modular and cohesive framework. The goal is to decouple data processing, model definition, and experiment execution.
 
-### 2.1. Establish the Pip Package
-
-- [ ] Create `pyproject.toml` to define the package metadata and dependencies, making it installable via `pip`.
-
-### 2.2. Refactor Core Components
-
-- [ ] **Refactor `eppnad` -> `src/nad_framework/core`**:
-    - [ ] Move `manager.py`, `execution_engine.py`, etc., to the new `core` directory.
-    - [ ] Apply dependency injection to decouple components (e.g., pass an `Engine` instance to the `Manager`).
-- [ ] **Refactor Models -> `src/nad_framework/models`**:
-    - [ ] Consolidate scattered model scripts (`mlp_*.py`, `cnn_*.py`, etc.).
-    - [ ] Create a `BaseModel` abstract class to define a common interface (`build`, `train`, `predict`).
-    - [ ] Make `MLP`, `CNN`, and `LSTM` classes inherit from `BaseModel`.
+### 2.1. Refactor the Core Execution Engine
+- [ ] **Goal:** Make the `ExecutionEngine` a better generic orchestrator that runs experiments using the (keras) standardized model interface.
+- [ ] **Action:**
+    - [ ] Move `execution_engine.py` to `src/eppnad/core/`.
+    - [ ] Update execution logic to enable intermitent execution.
+    - [ ] Update result saving logic to provide more insightfull data.
+    - [ ] Update profile saving logic to use long term storage periodically (csv?). 
+    - [ ] Create a runtime checkpoint logic.
+    - [ ] Create multiple profiles functions (full, intermitent).
+    - [ ] Add unit tests for all functions.
+    
+### 2.2. Refactor the Logger(EnergyMonitor)
+- [ ] **Goal:** Make the `EnergyMonitor` a better energy watchdog process.
+- [ ] **Action:**
+    - [ ] Move `logger.py` to `src/eppnad/core/`.    
+    - [ ] Add unit tests for all functions.
+    
+### 2.3. Refactor the Manager
+- [ ] **Goal:** Make the `Manager` a better entrypoint process for the framework..
+- [ ] **Action:**
+    - [ ] Move `manager.py` to `src/eppnad/core/`.    
+    - [ ] Add unit tests for all functions.
+    - [ ] Adapt the manager for the different profile styles (and new data structures).
+    
+### 2.4. Refactor the Plotter
+- [ ] **Goal:** Write a better plotting engine. 
+- [ ] **Action:**
+    - [ ] Move `plotter.py` to `src/eppnad/core/`.    
+    - [ ] Adapt the plotter to new intermediate way of storing profile data (csv?)
 
 ---
 
-## ✅ Phase 3: Testing and Continuous Integration
+## ✅ Phase 3: Incremental Testing and CI
 
-Build confidence in the framework's reliability through robust testing and automation.
+Build confidence in the framework's reliability through a structured, incremental testing strategy and automated checks.
 
-### 3.1. Improve the Test Suite
+### 3.1. Set Up the Testing Infrastructure
+- [ ] Add `pytest` and `pytest-cov` to the development environment file.
+- [ ] Create a `pytest.ini` or configure `pyproject.toml` to automatically discover tests in the `tests/` directory.
 
-- [ ] Write comprehensive unit tests for all core components.
-- [ ] Write integration tests for key user workflows (e.g., configuring and running a full experiment).
-- [ ] Use `pytest` and `pytest-cov` to measure test coverage.
+### 3.2. Implement Unit Tests Incrementally
+- [ ] **Target:** Core framework components.
+    - [ ] Write unit tests for the `Logger` to verify message formatting and file output.
+    - [x] Write unit tests for the `Manager` to ensure it correctly parses configurations.
+    - [ ] Write unit tests for the `ExecutionEngine` using a "mock" model object to test the execution flow without training a real model.
 
-### 3.2. Set Up Continuous Integration (CI)
+### 3.3. Measure and Improve Test Coverage
+- [ ] **Goal:** Use test coverage as a guide to identify untested parts of the codebase.
+- [ ] **Action:**
+    - [ ] Configure `pytest-cov` to generate a coverage report in the terminal after running tests. Add the following to your `pytest.ini`:
+     ``ini
+      [pytest]
+      addopts = --cov=src/nad_framework --cov-report=term-missing
+      ```
+    - [ ] Set an initial, achievable coverage target (e.g., 60%).
+    - [ ] Write new tests specifically for the files/lines that the coverage report shows are being missed.
 
+### 3.4. Set Up Continuous Integration (CI)
 - [ ] Create a GitHub Actions workflow (`.github/workflows/ci.yml`).
-- [ ] Configure the CI to automatically install dependencies and run the full test suite on every push and pull request.
+- [ ] Configure the CI to:
+    - [ ] Check out the code.
+    - [ ] Install the Conda environment from `environment.yml`.
+    - [ ] Run the full `pytest` suite with coverage reporting on every push and pull request.
 
 ---
 
 ## 🔬 Phase 4: Experimentation and Documentation
 
-Focus on the research extension and prepare the project for public use.
+Focus on the research extension and prepare the project for public use by creating a flexible experiment client and comprehensive documentation.
 
-### 4.1. Develop the Experiment Client
+### 4.1. Develop a Flexible Experiment Client
+- [ ] **Goal:** Create a simple command-line tool for running experiments without needing to write new Python code for each run.
+- [ ] **Technology:** Use Python's built-in `argparse` library for simplicity.
+- [ ] **Functionality:**
+    - [ ] Create `examples/run_experiment.py`.
+    - [ ] Add command-line arguments to specify the model type (`--model mlp`), dataset path (`--data ...`), and output file for results (`--output results.json`).
+    - [ ] The script will use the refactored `nad-framework` library to execute the experiment.
+    - [ ] Results should be saved in a structured format (JSON is a good choice) for easy analysis later.
 
-- [ ] Create `examples/experiment_client.py` as a CLI tool.
-- [ ] Implement command-line arguments (using `argparse`) to configure experiments (model, hyperparameters, dataset).
-- [ ] Ensure the client uses the refactored `nad-framework` as a library.
-- [ ] Save experiment results to a structured format (e.g., CSV, JSON) for analysis.
+### 4.2. Write a Comprehensive `README.md`
+- [ ] **Goal:** Make the `README.md` the definitive guide for a new user.
+- [ ] **Structure:**
+    - [ ] **Project Title & CI Badge:** Add the title and the auto-updating CI badge from your GitHub Action.
+    - [ ] **Project Description:** A clear, one-paragraph summary of what the project does and the problem it solves.
+    - [ ] **Installation:** Provide two clear, copy-pasteable blocks of code for installing the framework:
+        1. For users: `pip install nad-framework` (once it's on PyPI).
+        2. For developers: `conda env create -f environment.yml` followed by `pip install -e .`.
+    - [ ] **Quick Start:** A minimal, working example showing how to use the `run_experiment.py` client.
+    - [ ] **How to Cite:** A BibTeX entry for your paper so other researchers can cite your work correctly.
 
-### 4.2. Update the `README.md`
+---
 
-- [ ] Rewrite the `README.md` to be the definitive entry point for new users.
-- [ ] Include:
-    - [ ] Project title and CI badge.
-    - [ ] Clear, concise project description.
-    - [ ] "Installation" and "Quick Start" sections.
-    - [ ] "How to Cite" section for academic use.
+## 🏆 Phase 5: Finalization
+
+Perform the final tasks before a stable `1.0` release.
+
+### 5.1. Choose a Final Repository Name
+- [ ] **Goal:** Select a permanent, descriptive name for the framework now that its structure and purpose are clear.
+- [ ] **Action:**
+    - [ ] Brainstorm names that reflect the project's focus (e.g., `NetAnomalyDetector`, `EnergyProfilerDL`, `NADKit`).
+    - [ ] Check PyPI and GitHub to ensure the name is available.
+    - [ ] Rename the repository and update the `pyproject.toml` file.
