@@ -28,7 +28,7 @@ class ModelExecutionConfig:
         self,
         first_custom_layer_code: ModelLayerLambda,
         repeated_custom_layer_code: ModelLayerLambda,
-        final_custom_layer_code: ModelLayerLambda,
+        final_custom_layer_code: ModelFinalLayerLambda,
         statistical_samples: int,
         batch_size: int,
         performance_metrics_list: List[str],

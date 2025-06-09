@@ -6,7 +6,10 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.pyplot
 import numpy as np
-from .framework_parameters import ExecutionConfiguration, Lifecycle, PlotListCollection
+
+from eppnad.execution_engine import LifeCycle, ModelExecutionConfig
+from eppnad.utils.execution_configuration import ExecutionConfiguration
+from eppnad.utils.plot_list_collection import PlotListCollection
 
 
 def plot(
@@ -14,15 +17,15 @@ def plot(
     metrics_str_list: List[str],
     number_of_samples: int,
 ) -> PlotListCollection:
-    plot_list_collection = __get_plot_list_collection(results_list)
-    __create_output_directories_and_plot(
+    plot_list_collection = _get_plot_list_collection(results_list)
+    _create_output_directories_and_plot(
         plot_list_collection, metrics_str_list, number_of_samples
     )
     return plot_list_collection
 
 
-def __get_plot_list_collection(
-    results_list: List[tuple[ExecutionConfiguration, dict]]
+def _get_plot_list_collection(
+    results_list: List[tuple[ExecutionConfiguration, dict]],
 ) -> PlotListCollection:
     train_epoch_lists = []
     train_features_lists = []
@@ -35,8 +38,8 @@ def __get_plot_list_collection(
     test_layer_lists = []
 
     for configuration, results in results_list:
-        current_lifecycle = Lifecycle.Train
-        __populate_lists_with_results(
+        current_lifecycle = LifeCycle.TRAIN
+        _populate_lists_with_results(
             train_epoch_lists,
             train_features_lists,
             train_units_lists,
@@ -46,8 +49,8 @@ def __get_plot_list_collection(
             current_lifecycle,
         )
 
-        current_lifecycle = Lifecycle.Test
-        __populate_lists_with_results(
+        current_lifecycle = LifeCycle.TEST
+        _populate_lists_with_results(
             test_epoch_lists,
             test_features_lists,
             test_units_lists,
@@ -69,7 +72,7 @@ def __get_plot_list_collection(
     )
 
 
-def __create_output_directories_and_plot(
+def _create_output_directories_and_plot(
     plot_list_collection: PlotListCollection,
     metrics_str_list: List[str],
     number_of_samples: int,
@@ -86,24 +89,24 @@ def __create_output_directories_and_plot(
         metric_dir = os.path.join(timestamped_dir, metric)
         os.makedirs(metric_dir, exist_ok=True)
         for snapshot_result_list in plot_list_collection.test_epoch_lists:
-            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Epochs", metric_dir, number_of_samples)  # type: ignore
+            _generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Epochs", metric_dir, number_of_samples)  # type: ignore
         for snapshot_result_list in plot_list_collection.test_features_lists:
-            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Features", metric_dir, number_of_samples)  # type: ignore
+            _generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Features", metric_dir, number_of_samples)  # type: ignore
         for snapshot_result_list in plot_list_collection.test_layers_lists:
-            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Layers", metric_dir, number_of_samples)  # type: ignore
+            _generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Layers", metric_dir, number_of_samples)  # type: ignore
         for snapshot_result_list in plot_list_collection.test_units_lists:
-            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Units", metric_dir, number_of_samples)  # type: ignore
+            _generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Units", metric_dir, number_of_samples)  # type: ignore
         for snapshot_result_list in plot_list_collection.train_epoch_lists:
-            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Epochs", metric_dir, number_of_samples)  # type: ignore
+            _generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Epochs", metric_dir, number_of_samples)  # type: ignore
         for snapshot_result_list in plot_list_collection.train_features_lists:
-            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Features", metric_dir, number_of_samples)  # type: ignore
+            _generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Features", metric_dir, number_of_samples)  # type: ignore
         for snapshot_result_list in plot_list_collection.train_layers_lists:
-            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Layers", metric_dir, number_of_samples)  # type: ignore
+            _generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Layers", metric_dir, number_of_samples)  # type: ignore
         for snapshot_result_list in plot_list_collection.train_units_lists:
-            __generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Units", metric_dir, number_of_samples)  # type: ignore
+            _generate_metric_and_energy_line_plot(snapshot_result_list, metric, "Units", metric_dir, number_of_samples)  # type: ignore
 
 
-def __generate_metric_and_energy_line_plot(
+def _generate_metric_and_energy_line_plot(
     config_and_results_list: tuple[ExecutionConfiguration, List[int], List[dict]],
     metric_name: str,
     hyperparameter_name: str,
@@ -166,7 +169,7 @@ def __generate_metric_and_energy_line_plot(
 
     color = "tab:red"
     energy_consumption_label = ""
-    if config.cycle.value == Lifecycle.Train.value:
+    if LifeCycle.TRAIN in config.cycle:
         energy_consumption_label = "Training Epoch Average Energy Consumption (J)"
     else:
         energy_consumption_label = "Test Evaluation Average Energy Consumption (J)"
@@ -218,7 +221,7 @@ def __generate_metric_and_energy_line_plot(
     plt.clf()
 
 
-def __populate_lists_with_results(
+def _populate_lists_with_results(
     epoch_lists,
     features_lists,
     units_lists,
@@ -230,7 +233,7 @@ def __populate_lists_with_results(
     if configuration.cycle.value == current_lifecycle.value:
         has_found_epoch = False
         for saved_configuration, hyperparameter_list, result_list in epoch_lists:
-            if __is_same_epoch_snapshot(configuration, saved_configuration):
+            if _is_same_epoch_snapshot(configuration, saved_configuration):
                 has_found_epoch = True
                 hyperparameter_list.append(configuration.number_of_epochs)
                 result_list.append(results)
@@ -241,7 +244,7 @@ def __populate_lists_with_results(
 
         has_found_features = False
         for saved_configuration, hyperparameter_list, result_list in features_lists:
-            if __is_same_features_snapshot(configuration, saved_configuration):
+            if _is_same_features_snapshot(configuration, saved_configuration):
                 has_found_features = True
                 hyperparameter_list.append(configuration.number_of_features)
                 result_list.append(results)
@@ -252,7 +255,7 @@ def __populate_lists_with_results(
 
         has_found_units = False
         for saved_configuration, hyperparameter_list, result_list in units_lists:
-            if __is_same_units_snapshot(configuration, saved_configuration):
+            if _is_same_units_snapshot(configuration, saved_configuration):
                 has_found_units = True
                 hyperparameter_list.append(configuration.number_of_units)
                 result_list.append(results)
@@ -263,17 +266,15 @@ def __populate_lists_with_results(
 
         has_found_layers = False
         for saved_configuration, hyperparameter_list, result_list in layer_lists:
-            if __is_same_layers_snapshot(configuration, saved_configuration):
+            if _is_same_layers_snapshot(configuration, saved_configuration):
                 has_found_layers = True
-                hyperparameter_list.append(configuration.number_of_layers)
+                hyperparameter_list.append(configuration.layers)
                 result_list.append(results)
         if not has_found_layers:
-            layer_lists.append(
-                (configuration, [configuration.number_of_layers], [results])
-            )
+            layer_lists.append((configuration, [configuration.layers], [results]))
 
 
-def __is_same_epoch_snapshot(
+def _is_same_epoch_snapshot(
     configuration: ExecutionConfiguration, saved_configuration: ExecutionConfiguration
 ):
     return (
@@ -283,7 +284,7 @@ def __is_same_epoch_snapshot(
     )
 
 
-def __is_same_features_snapshot(
+def _is_same_features_snapshot(
     configuration: ExecutionConfiguration, saved_configuration: ExecutionConfiguration
 ):
     return (
@@ -293,7 +294,7 @@ def __is_same_features_snapshot(
     )
 
 
-def __is_same_units_snapshot(
+def _is_same_units_snapshot(
     configuration: ExecutionConfiguration, saved_configuration: ExecutionConfiguration
 ):
     return (
@@ -303,7 +304,7 @@ def __is_same_units_snapshot(
     )
 
 
-def __is_same_layers_snapshot(
+def _is_same_layers_snapshot(
     configuration: ExecutionConfiguration, saved_configuration: ExecutionConfiguration
 ):
     return (

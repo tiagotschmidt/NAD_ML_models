@@ -15,11 +15,11 @@ class TestExecutionConfiguration:
         "layers, units, epochs, features, sampling_rate, platform, cycle",
         [
             # Test Case 1: Typical CPU training run
-            (4, 128, 50, 20, 1.0, Platform.CPU, LifeCycle.ONLY_TRAIN),
+            (4, 128, 50, 20, 1.0, Platform.CPU, LifeCycle.TRAIN),
             # Test Case 2: GPU testing run with different values
-            (8, 256, 1, 30, 0.8, Platform.GPU, LifeCycle.ONLY_TEST),
+            (8, 256, 1, 30, 0.8, Platform.GPU, LifeCycle.TEST),
             # Edge Case: Minimum values
-            (1, 1, 1, 1, 0.1, Platform.CPU, LifeCycle.ONLY_TRAIN),
+            (1, 1, 1, 1, 0.1, Platform.CPU, LifeCycle.TRAIN),
         ],
     )
     def test_initialization_and_attributes(
@@ -62,7 +62,7 @@ class TestExecutionConfiguration:
             features=15,
             sampling_rate=0.9,
             platform=Platform.GPU,
-            cycle=LifeCycle.ONLY_TRAIN,
+            cycle=LifeCycle.TRAIN,
         )
 
         # 2. Generate the expected string
@@ -75,7 +75,7 @@ class TestExecutionConfiguration:
             "features=15, "
             "sampling_rate=0.9, "
             "platform=GPU, "
-            "cycle=ONLY_TRAIN"
+            "cycle=TRAIN"
             ")"
         )
 

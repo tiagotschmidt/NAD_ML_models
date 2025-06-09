@@ -3,7 +3,7 @@ import multiprocessing
 from os import path
 import statistics
 from time import time
-from typing import List
+from typing import List, Tuple
 import keras
 import numpy as np
 import pandas as pd
@@ -72,22 +72,22 @@ class ExecutionEngine(multiprocessing.Process):
             f"[EXECUTION-ENGINE] Starting execution for model {self.model_name} config: {configuration}"
         )
 
-        underlying_model = self.model_function()  ### Start base user model.
+        underlying_model = self.model_function  ### Start base user model.
 
         X_train, y_train, X_test, y_test = (
-            self.__select_x_and_y_from_config(  ### Get dataset x,y; train,test.
+            self._select_x_and_y_from_config(  ### Get dataset x,y; train,test.
                 configuration
             )
         )
 
         input_shape = (  ### Get input shape.
             X_train.shape[1]
-            if LifeCycle.ONLY_TRAIN in configuration.cycle
+            if LifeCycle.TRAIN in configuration.cycle
             else X_test.shape[1]
         )
 
         underlying_model = (
-            self.__assemble_model_for_config(  ### Get from storage or assemble ML model
+            self._assemble_model_for_config(  ### Get from storage or assemble ML model
                 underlying_model,
                 configuration,
                 input_shape,
@@ -103,20 +103,20 @@ class ExecutionEngine(multiprocessing.Process):
 
         underlying_model.summary()
 
-        processed_results = self.__execution_routine(
+        processed_results = self._execution_routine(
             underlying_model, configuration, X_train, y_train, X_test, y_test
         )
 
-        if self.__is_train_config(configuration):
+        if self._is_train_config(configuration):
             self.internal_logger.info("[EXECUTION-ENGINE] Saving model to storage.")
-            self.__save_model_to_storage(underlying_model, configuration)
+            self._save_model_to_storage(underlying_model, configuration)
 
         self.results_list.append((configuration, processed_results))
         collected = gc.collect()
 
         self.internal_logger.info(f"Garbage collector: collected {collected} objects.")
 
-    def __execution_routine(
+    def _execution_routine(
         self,
         underlying_model: keras.models.Model,
         configuration: ExecutionConfiguration,
@@ -134,7 +134,7 @@ class ExecutionEngine(multiprocessing.Process):
         start_time = time()  ### Measurement cycle BEGIN
 
         for i in range(0, self.model_execution_configuration.number_of_samples):
-            test_results = self.__execute_sample(
+            test_results = self._execute_sample(
                 underlying_model, configuration, X_train, y_train, X_test, y_test
             )
             current_results.append(test_results)
@@ -163,7 +163,7 @@ class ExecutionEngine(multiprocessing.Process):
 
         total_elapsed_time_s = end_time - start_time
 
-        processed_results = self.__process_results(
+        processed_results = self._process_results(
             current_results,
         )
 
@@ -191,7 +191,7 @@ class ExecutionEngine(multiprocessing.Process):
 
         return processed_results
 
-    def __process_results(
+    def _process_results(
         self,
         current_results: List[dict],
     ) -> dict:
@@ -214,10 +214,10 @@ class ExecutionEngine(multiprocessing.Process):
 
         return processed_results
 
-    def __is_train_config(self, configuration) -> bool:
-        return configuration.cycle.value == LifeCycle.Train.value
+    def _is_train_config(self, configuration) -> bool:
+        return configuration.cycle.value == LifeCycle.TRAIN
 
-    def __execute_sample(
+    def _execute_sample(
         self,
         underlying_model: keras.models.Model,
         configuration: ExecutionConfiguration,
@@ -227,7 +227,7 @@ class ExecutionEngine(multiprocessing.Process):
         y_test,
     ) -> dict:  # type: ignore
         test_results = {}
-        if configuration.cycle.value == LifeCycle.Train.value:
+        if configuration.cycle.value == LifeCycle.TRAIN in configuration.cycle:
             _ = underlying_model.fit(
                 X_train,
                 y_train,
@@ -240,13 +240,13 @@ class ExecutionEngine(multiprocessing.Process):
                 X_test, y_test, verbose=1, return_dict=True  # type: ignore
             )
             return test_results
-        elif configuration.cycle.value == LifeCycle.Test.value:
+        elif LifeCycle.TEST in configuration.cycle:
             test_results = underlying_model.evaluate(
                 X_test, y_test, verbose=1, return_dict=True  # type: ignore
             )
             return test_results
 
-    def __select_x_and_y_from_config(
+    def _select_x_and_y_from_config(
         self, configuration: ExecutionConfiguration
     ) -> tuple[
         np.ndarray[np.floating],  # type: ignore
@@ -255,21 +255,21 @@ class ExecutionEngine(multiprocessing.Process):
         np.ndarray[np.floating],  # type: ignore
     ]:
         (X_train, y_train, X_test, y_test) = (
-            self.__get_x_and_y(configuration.number_of_features)
-            if configuration.cycle.value == LifeCycle.Train.value
-            else self.__get_full_dataset(configuration.number_of_features)
+            self._get_x_and_y(configuration.number_of_features)
+            if LifeCycle.TRAIN in configuration.cycle
+            else self._get_full_dataset(configuration.number_of_features)
         )
 
         return X_train, y_train, X_test, y_test
 
-    def __assemble_model_for_config(
+    def _assemble_model_for_config(
         self,
         underlying_model: keras.models.Model,
         configuration: ExecutionConfiguration,
         x_train_shape: int,
     ) -> keras.models.Model:
-        if configuration.cycle.value == LifeCycle.Test.value:
-            (load_sucess, candidate_model) = self.__try_load_model_from_storage(
+        if LifeCycle.TEST in configuration.cycle:
+            (load_sucess, candidate_model) = self._try_load_model_from_storage(
                 underlying_model, configuration
             )
             if load_sucess:
@@ -291,7 +291,7 @@ class ExecutionEngine(multiprocessing.Process):
         self.model_execution_configuration.final_custom_layer_code(underlying_model)
         return underlying_model
 
-    def __get_x_and_y(self, number_of_features: int) -> tuple[
+    def _get_x_and_y(self, number_of_features: int) -> Tuple[
         np.ndarray[np.floating],  # type: ignore
         np.ndarray[np.floating],  # type: ignore
         np.ndarray[np.floating],  # type: ignore
@@ -321,9 +321,9 @@ class ExecutionEngine(multiprocessing.Process):
             f"[EXECUTION-ENGINE] Using dataset with {X_train.shape[1]} features"
         )
 
-        return (X_train, y_train, X_test, y_test)
+        return (X_train, y_train, X_test, y_test)  # type: ignore
 
-    def __get_full_dataset(self, number_of_features: int) -> tuple:
+    def _get_full_dataset(self, number_of_features: int) -> tuple:
         preprocessed_data = self.model_execution_configuration.dataset
 
         original_number_of_features = preprocessed_data.shape[1] - 1
@@ -342,7 +342,7 @@ class ExecutionEngine(multiprocessing.Process):
         Y_test = np.asarray(target).astype(np.float32)
         return ([], [], X_test, Y_test)
 
-    def __try_load_model_from_storage(
+    def _try_load_model_from_storage(
         self,
         underlying_model: keras.models.Model,
         configuration: ExecutionConfiguration,
@@ -360,7 +360,7 @@ class ExecutionEngine(multiprocessing.Process):
         except (FileNotFoundError, IOError, ValueError) as e:
             return (False, None)  # type: ignore
 
-    def __save_model_to_storage(
+    def _save_model_to_storage(
         self,
         underlying_model: keras.models.Model,
         configuration: ExecutionConfiguration,

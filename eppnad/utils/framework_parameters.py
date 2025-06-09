@@ -162,9 +162,9 @@ class LifeCycle(Flag):
     Indicates the lifecycle of the profiling.
     """
 
-    ONLY_TRAIN = auto()
-    ONLY_TEST = auto()
-    TRAIN_AND_TEST = ONLY_TRAIN | ONLY_TEST
+    TRAIN = auto()
+    TEST = auto()
+    TRAIN_AND_TEST = TRAIN | TEST
 
 
 class ProfileMode:

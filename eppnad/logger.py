@@ -3,7 +3,8 @@ import subprocess
 import pyRAPL
 import multiprocessing
 from multiprocessing.connection import Connection
-from .framework_parameters import Platform, ProcessSignal
+
+from eppnad.utils.framework_parameters import Platform, ProcessSignal
 
 
 class Logger(multiprocessing.Process):

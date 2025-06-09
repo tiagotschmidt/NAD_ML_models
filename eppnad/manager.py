@@ -9,7 +9,6 @@ from eppnad.utils.execution_configuration import ExecutionConfiguration
 from eppnad.utils.framework_parameters import (
     FrameworkParameterType,
     LifeCycle,
-    LifecycleSelected,
     ProfileMode,
     PercentageRangeParameter,
     Platform,
@@ -57,7 +56,7 @@ def profile(
     ),
     sampling_rates: PercentageRangeParameter = PercentageRangeParameter([1]),
     profile_mode: ProfileMode = ProfileMode(
-        LifecycleSelected.TrainAndTest, Platform.GPU, Platform.CPU
+        LifeCycle.TRAIN_AND_TEST, Platform.GPU, Platform.CPU
     ),
     statistical_samples: int = 30,
     batch_size: int = 32,
@@ -67,14 +66,14 @@ def profile(
         "recall",
     ],
     preprocessed_dataset: pd.DataFrame = pd.read_csv(
-        "dataset/preprocessed_binary_dataset.csv"
+        "data/NSL-KDD/preprocessed_binary_dataset.csv"
     ),
     dataset_target_label: str = "intrusion",
     loss_metric_str: str = "binary_crossentropy",
     optimizer: str = "adam",
 ) -> PlotListCollection:
     logging.info("Starting EPPNAD profiling.")
-    configurations_list = __generate_configurations_list(
+    configurations_list = _generate_configurations_list(
         numbers_of_layers,
         numbers_of_units,
         numbers_of_epochs,
@@ -140,7 +139,7 @@ def profile(
     return final_results
 
 
-def __generate_configurations_list(
+def _generate_configurations_list(
     layers: RangeParameter,
     units: RangeParameter,
     epochs: RangeParameter,
@@ -148,9 +147,27 @@ def __generate_configurations_list(
     sampling_rates: PercentageRangeParameter,
     profile_mode: ProfileMode,
 ) -> List[ExecutionConfiguration]:
+    """
+    Generates a list of all possible hyperparameter configurations.
+
+    This private helper function creates the Cartesian product of all provided
+    hyperparameter ranges, creating an ExecutionConfiguration object for each
+    unique combination based on the specified profile mode.
+
+    Args:
+        layers: The range of layer counts to test.
+        units: The range of unit counts to test.
+        epochs: The range of epoch counts to test.
+        features: The range of feature counts to test.
+        sampling_rates: The range of sampling rates to test.
+        profile_mode: The ProfileMode specifying which lifecycles and platforms to run.
+
+    Returns:
+        A list of ExecutionConfiguration objects, one for each experiment to be run.
+    """
     return_list = []
-    if LifecycleSelected.ONLY_TRAIN in profile_mode.cycle:
-        lifecycle = LifeCycle.Train
+    if LifeCycle.TRAIN in profile_mode.cycle:
+        lifecycle = LifeCycle.TRAIN
         platform = profile_mode.train_platform
         flatten_configurations(
             layers,
@@ -163,8 +180,8 @@ def __generate_configurations_list(
             platform,
         )
 
-    if LifecycleSelected.ONLY_TEST in profile_mode.cycle:
-        lifecycle = LifeCycle.Test
+    if LifeCycle.TEST in profile_mode.cycle:
+        lifecycle = LifeCycle.TEST
         platform = profile_mode.test_platform
         flatten_configurations(
             layers,
@@ -183,6 +200,23 @@ def __generate_configurations_list(
 def flatten_configurations(
     layers, units, epochs, features, sampling_rates, return_list, lifecycle, platform
 ):
+    """
+    A nested loop helper to flatten the parameter space into a list.
+
+    This function iterates through all combinations of the provided parameter
+    ranges and appends a new ExecutionConfiguration object to the return_list
+    for each one.
+
+    Args:
+        layers: The range of layer counts.
+        units: The range of unit counts.
+        epochs: The range of epoch counts.
+        features: The range of feature counts.
+        sampling_rates: The range of sampling rates.
+        return_list: The list to which new configurations will be appended.
+        lifecycle: The lifecycle phase (Train or Test) for this batch.
+        platform: The platform (CPU or GPU) for this batch.
+    """
     for number_of_layers in layers:
         for number_of_neurons in units:
             for number_of_epochs in epochs:
