@@ -7,7 +7,7 @@ from multiprocessing.connection import Connection
 from eppnad.utils.framework_parameters import Platform, ProcessSignal
 
 
-class Logger(multiprocessing.Process):
+class EnergyMonitor(multiprocessing.Process):
     def __init__(
         self,
         start_pipe: Connection,
@@ -15,7 +15,7 @@ class Logger(multiprocessing.Process):
         signal_pipe: Connection,
         result_pipe: Connection,
     ):
-        super(Logger, self).__init__()
+        super(EnergyMonitor, self).__init__()
         self.start_pipe = start_pipe
         self.internal_logger = internal_logger
         self.signal_pipe = signal_pipe
