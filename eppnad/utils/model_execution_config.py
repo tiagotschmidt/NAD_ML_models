@@ -36,10 +36,6 @@ class ModelExecutionConfig:
         dataset_target_label: str,
         loss_metric_str: str,
         optimizer: str,
-        start_pipe: Connection,
-        results_pipe: Connection,
-        log_signal_pipe: Connection,
-        log_result_pipe: Connection,
     ):
         """
         Initializes the ModelExecutionConfig with all execution-related settings.
@@ -71,7 +67,3 @@ class ModelExecutionConfig:
         self.dataset_target_label = dataset_target_label
         self.loss_metric_str = loss_metric_str
         self.optimizer = optimizer
-        self.start_pipe = start_pipe
-        self.results_pipe = results_pipe
-        self.log_signal_pipe = log_signal_pipe
-        self.log_result_pipe = log_result_pipe

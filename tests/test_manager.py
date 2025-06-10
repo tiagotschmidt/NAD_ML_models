@@ -7,15 +7,14 @@ import pytest
 
 # Assuming the function is in 'manager.py' and utilities are in 'eppnad.utils'
 from eppnad import manager
-from eppnad.execution_engine import LifeCycle
+from eppnad.utils.execution_configuration import ExecutionConfiguration
 from eppnad.utils.framework_parameters import (
+    Lifecycle,
     Platform,
     ProfileMode,
     RangeParameter,
     PercentageRangeParameter,
 )
-from eppnad.manager import _generate_configurations_list
-from eppnad.utils.execution_configuration import ExecutionConfiguration
 
 
 class TestGenerateConfigurationsList:
@@ -42,13 +41,13 @@ class TestGenerateConfigurationsList:
     def test_generate_configurations_only_train(self, sample_parameters):
         """
         Tests that the function correctly generates configurations for a
-        `ONLY_TRAIN` lifecycle.
+        `ONLY_TRAIN` Lifecycle.
 
         It should produce a list where all configurations have the `Lifecycle.Train`
         and `Platform.CPU` settings.
         """
         # 1. Define the ProfileMode for this test case
-        profile_mode = ProfileMode(cycle=LifeCycle.TRAIN, train_platform=Platform.CPU)
+        profile_mode = ProfileMode(cycle=Lifecycle.TRAIN, train_platform=Platform.CPU)
 
         # 2. Call the function under test
         configurations = manager._generate_configurations_list(
@@ -66,8 +65,8 @@ class TestGenerateConfigurationsList:
         ), "All items in the list should be ExecutionConfiguration objects"
 
         assert all(
-            c.cycle == LifeCycle.TRAIN for c in configurations
-        ), "All configurations should have the Train lifecycle"
+            c.cycle == Lifecycle.TRAIN for c in configurations
+        ), "All configurations should have the Train Lifecycle"
 
         assert all(
             c.platform == Platform.CPU for c in configurations
@@ -76,13 +75,13 @@ class TestGenerateConfigurationsList:
     def test_generate_configurations_only_test(self, sample_parameters):
         """
         Tests that the function correctly generates configurations for an
-        `ONLY_TEST` lifecycle.
+        `ONLY_TEST` Lifecycle.
 
         It should produce a list where all configurations have the `Lifecycle.Test`
         and `Platform.GPU` settings.
         """
         # 1. Define the ProfileMode for this test case
-        profile_mode = ProfileMode(cycle=LifeCycle.TEST, test_platform=Platform.GPU)
+        profile_mode = ProfileMode(cycle=Lifecycle.TEST, test_platform=Platform.GPU)
 
         # 2. Call the function under test
         configurations = manager._generate_configurations_list(
@@ -96,8 +95,8 @@ class TestGenerateConfigurationsList:
         ), "Should generate the correct number of configurations"
 
         assert all(
-            c.cycle == LifeCycle.TEST for c in configurations
-        ), "All configurations should have the Test lifecycle"
+            c.cycle == Lifecycle.TEST for c in configurations
+        ), "All configurations should have the Test Lifecycle"
 
         assert all(
             c.platform == Platform.GPU for c in configurations
@@ -106,14 +105,14 @@ class TestGenerateConfigurationsList:
     def test_generate_configurations_train_and_test(self, sample_parameters):
         """
         Tests that the function correctly generates configurations for a
-        `TRAIN_AND_TEST` lifecycle.
+        `TRAIN_AND_TEST` Lifecycle.
 
         It should produce a list containing configurations for both training
         on CPU and testing on GPU, doubling the total number of configurations.
         """
         # 1. Define the ProfileMode for this test case
         profile_mode = ProfileMode(
-            cycle=LifeCycle.TRAIN_AND_TEST,
+            cycle=Lifecycle.TRAIN_AND_TEST,
             train_platform=Platform.CPU,
             test_platform=Platform.GPU,
         )
@@ -127,17 +126,17 @@ class TestGenerateConfigurationsList:
         # Expected length = 8 (for train) + 8 (for test) = 16
         assert (
             len(configurations) == 16
-        ), "Should generate configurations for both train and test lifecycles"
+        ), "Should generate configurations for both train and test Lifecycles"
 
         # Check the train configurations
-        train_configs = [c for c in configurations if c.cycle == LifeCycle.TRAIN]
+        train_configs = [c for c in configurations if c.cycle == Lifecycle.TRAIN]
         assert len(train_configs) == 8, "There should be 8 training configurations"
         assert all(
             c.platform == Platform.CPU for c in train_configs
         ), "All training configurations should be set to the CPU platform"
 
         # Check the test configurations
-        test_configs = [c for c in configurations if c.cycle == LifeCycle.TEST]
+        test_configs = [c for c in configurations if c.cycle == Lifecycle.TEST]
         assert len(test_configs) == 8, "There should be 8 testing configurations"
         assert all(
             c.platform == Platform.GPU for c in test_configs
@@ -156,7 +155,7 @@ class TestGenerateConfigurationsList:
             "features": RangeParameter([20]),
             "sampling_rates": PercentageRangeParameter([1.0]),
         }
-        profile_mode = ProfileMode(cycle=LifeCycle.TRAIN, train_platform=Platform.CPU)
+        profile_mode = ProfileMode(cycle=Lifecycle.TRAIN, train_platform=Platform.CPU)
 
         # 2. Call the function under test
         configurations = manager._generate_configurations_list(

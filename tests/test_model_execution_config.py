@@ -38,10 +38,6 @@ class TestModelExecutionConfig:
             "dataset_target_label": "target",
             "loss_metric_str": "binary_crossentropy",
             "optimizer": "adam",
-            "start_pipe": mock_pipe_a,
-            "results_pipe": mock_pipe_b,
-            "log_signal_pipe": mock_pipe_c,
-            "log_result_pipe": mock_pipe_d,
         }
 
         # 3. Create an instance of the class
@@ -58,10 +54,6 @@ class TestModelExecutionConfig:
         assert config_instance.dataset_target_label == "target"
         assert config_instance.loss_metric_str == "binary_crossentropy"
         assert config_instance.optimizer == "adam"
-        assert config_instance.start_pipe is mock_pipe_a
-        assert config_instance.results_pipe is mock_pipe_b
-        assert config_instance.log_signal_pipe is mock_pipe_c
-        assert config_instance.log_result_pipe is mock_pipe_d
 
     def test_initialization_with_different_values(self, mocker: MagicMock):
         """
@@ -85,10 +77,6 @@ class TestModelExecutionConfig:
             dataset_target_label="label",
             loss_metric_str="mae",
             optimizer="sgd",
-            start_pipe=mock_pipe_e,
-            results_pipe=mock_pipe_e,
-            log_signal_pipe=mock_pipe_e,
-            log_result_pipe=mock_pipe_e,
         )
 
         # Assert a subset of the attributes to confirm they are set correctly
@@ -97,4 +85,3 @@ class TestModelExecutionConfig:
         assert config_instance.performance_metrics_list == ["mse"]
         assert config_instance.dataset_target_label == "label"
         assert config_instance.optimizer == "sgd"
-        assert config_instance.start_pipe is mock_pipe_e

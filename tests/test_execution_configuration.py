@@ -5,7 +5,7 @@ This module contains the unit tests for the ExecutionConfiguration class.
 import pytest
 
 from eppnad.utils.execution_configuration import ExecutionConfiguration
-from eppnad.utils.framework_parameters import LifeCycle, Platform
+from eppnad.utils.framework_parameters import Lifecycle, Platform
 
 
 class TestExecutionConfiguration:
@@ -15,11 +15,11 @@ class TestExecutionConfiguration:
         "layers, units, epochs, features, sampling_rate, platform, cycle",
         [
             # Test Case 1: Typical CPU training run
-            (4, 128, 50, 20, 1.0, Platform.CPU, LifeCycle.TRAIN),
+            (4, 128, 50, 20, 1.0, Platform.CPU, Lifecycle.TRAIN),
             # Test Case 2: GPU testing run with different values
-            (8, 256, 1, 30, 0.8, Platform.GPU, LifeCycle.TEST),
+            (8, 256, 1, 30, 0.8, Platform.GPU, Lifecycle.TEST),
             # Edge Case: Minimum values
-            (1, 1, 1, 1, 0.1, Platform.CPU, LifeCycle.TRAIN),
+            (1, 1, 1, 1, 0.1, Platform.CPU, Lifecycle.TRAIN),
         ],
     )
     def test_initialization_and_attributes(
@@ -62,7 +62,7 @@ class TestExecutionConfiguration:
             features=15,
             sampling_rate=0.9,
             platform=Platform.GPU,
-            cycle=LifeCycle.TRAIN,
+            cycle=Lifecycle.TRAIN,
         )
 
         # 2. Generate the expected string

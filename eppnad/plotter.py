@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 import matplotlib.pyplot
 import numpy as np
 
-from eppnad.execution_engine import LifeCycle, ModelExecutionConfig
 from eppnad.utils.execution_configuration import ExecutionConfiguration
+from eppnad.utils.framework_parameters import Lifecycle
 from eppnad.utils.plot_list_collection import PlotListCollection
 
 
@@ -38,7 +38,7 @@ def _get_plot_list_collection(
     test_layer_lists = []
 
     for configuration, results in results_list:
-        current_lifecycle = LifeCycle.TRAIN
+        current_Lifecycle = Lifecycle.TRAIN
         _populate_lists_with_results(
             train_epoch_lists,
             train_features_lists,
@@ -46,10 +46,10 @@ def _get_plot_list_collection(
             train_layer_lists,
             configuration,
             results,
-            current_lifecycle,
+            current_Lifecycle,
         )
 
-        current_lifecycle = LifeCycle.TEST
+        current_Lifecycle = Lifecycle.TEST
         _populate_lists_with_results(
             test_epoch_lists,
             test_features_lists,
@@ -57,7 +57,7 @@ def _get_plot_list_collection(
             test_layer_lists,
             configuration,
             results,
-            current_lifecycle,
+            current_Lifecycle,
         )
 
     return PlotListCollection(
@@ -169,7 +169,7 @@ def _generate_metric_and_energy_line_plot(
 
     color = "tab:red"
     energy_consumption_label = ""
-    if LifeCycle.TRAIN in config.cycle:
+    if Lifecycle.TRAIN in config.cycle:
         energy_consumption_label = "Training Epoch Average Energy Consumption (J)"
     else:
         energy_consumption_label = "Test Evaluation Average Energy Consumption (J)"
@@ -228,9 +228,9 @@ def _populate_lists_with_results(
     layer_lists,
     configuration,
     results,
-    current_lifecycle,
+    current_Lifecycle,
 ):
-    if configuration.cycle.value == current_lifecycle.value:
+    if configuration.cycle.value == current_Lifecycle.value:
         has_found_epoch = False
         for saved_configuration, hyperparameter_list, result_list in epoch_lists:
             if _is_same_epoch_snapshot(configuration, saved_configuration):
@@ -275,7 +275,8 @@ def _populate_lists_with_results(
 
 
 def _is_same_epoch_snapshot(
-    configuration: ExecutionConfiguration, saved_configuration: ExecutionConfiguration
+    configuration: ExecutionConfiguration,
+    saved_configuration: ExecutionConfiguration,
 ):
     return (
         configuration.number_of_features == saved_configuration.number_of_features
@@ -285,7 +286,8 @@ def _is_same_epoch_snapshot(
 
 
 def _is_same_features_snapshot(
-    configuration: ExecutionConfiguration, saved_configuration: ExecutionConfiguration
+    configuration: ExecutionConfiguration,
+    saved_configuration: ExecutionConfiguration,
 ):
     return (
         configuration.number_of_epochs == saved_configuration.number_of_epochs
@@ -295,7 +297,8 @@ def _is_same_features_snapshot(
 
 
 def _is_same_units_snapshot(
-    configuration: ExecutionConfiguration, saved_configuration: ExecutionConfiguration
+    configuration: ExecutionConfiguration,
+    saved_configuration: ExecutionConfiguration,
 ):
     return (
         configuration.number_of_epochs == saved_configuration.number_of_epochs
@@ -305,7 +308,8 @@ def _is_same_units_snapshot(
 
 
 def _is_same_layers_snapshot(
-    configuration: ExecutionConfiguration, saved_configuration: ExecutionConfiguration
+    configuration: ExecutionConfiguration,
+    saved_configuration: ExecutionConfiguration,
 ):
     return (
         configuration.number_of_epochs == saved_configuration.number_of_epochs

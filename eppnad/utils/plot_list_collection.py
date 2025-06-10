@@ -1,7 +1,7 @@
 from typing import List, Tuple
-from eppnad.execution_engine import ModelExecutionConfig
+from eppnad.utils.execution_configuration import ExecutionConfiguration
 
-SnapshotResultsList = List[Tuple[ModelExecutionConfig, List[int], List[dict]]]  # type: ignore
+SnapshotResultsList = List[Tuple[ExecutionConfiguration, List[int], List[dict]]]  # type: ignore
 
 
 class PlotListCollection:

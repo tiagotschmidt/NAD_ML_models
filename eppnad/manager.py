@@ -1,5 +1,6 @@
 import multiprocessing
 from typing import List
+from typing_extensions import runtime
 import keras
 import pandas as pd
 import logging
@@ -8,7 +9,7 @@ import datetime
 from eppnad.utils.execution_configuration import ExecutionConfiguration
 from eppnad.utils.framework_parameters import (
     FrameworkParameterType,
-    LifeCycle,
+    Lifecycle,
     ProfileMode,
     PercentageRangeParameter,
     Platform,
@@ -21,9 +22,10 @@ from eppnad.utils.model_execution_config import (
     ModelLayerLambda,
 )
 from eppnad.utils.plot_list_collection import PlotListCollection
+from eppnad.utils.runtime_snapshot import RuntimeSnapshot
 from .plotter import plot
 
-internal_logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 internal_log_filename = f"epp_nad_{timestamp}.log"
 logging.basicConfig(
@@ -33,7 +35,7 @@ logging.basicConfig(
 )
 
 from .execution_engine import ExecutionEngine
-from .logger import Logger
+from .energy_monitor import EnergyMonitor
 
 
 def profile(
@@ -56,7 +58,7 @@ def profile(
     ),
     sampling_rates: PercentageRangeParameter = PercentageRangeParameter([1]),
     profile_mode: ProfileMode = ProfileMode(
-        LifeCycle.TRAIN_AND_TEST, Platform.GPU, Platform.CPU
+        Lifecycle.TRAIN_AND_TEST, Platform.GPU, Platform.CPU
     ),
     statistical_samples: int = 30,
     batch_size: int = 32,
@@ -102,23 +104,25 @@ def profile(
         dataset_target_label,
         loss_metric_str,
         optimizer,
+    )
+
+    runtime_snapshot = RuntimeSnapshot(
+        user_model_name, configurations_list, modelExecutionConfig, 0
+    )
+
+    engine = ExecutionEngine(
+        user_model_function,
+        runtime_snapshot,
+        logger,  # type: ignore
         start_pipe_engine_side,
         results_pipe_engine_side,
         engine_side_signal_pipe,
         engine_side_result_pipe,
     )
 
-    engine = ExecutionEngine(
-        configurations_list,
-        user_model_function,
-        user_model_name,
-        modelExecutionConfig,
-        internal_logger,
-    )
-
-    logger = Logger(
+    logger = EnergyMonitor(
         start_pipe_logger_side,
-        internal_logger,
+        logger,  # type: ignore
         log_side_signal_pipe,
         log_side_result_pipe,
     )
@@ -166,8 +170,8 @@ def _generate_configurations_list(
         A list of ExecutionConfiguration objects, one for each experiment to be run.
     """
     return_list = []
-    if LifeCycle.TRAIN in profile_mode.cycle:
-        lifecycle = LifeCycle.TRAIN
+    if Lifecycle.TRAIN in profile_mode.cycle:
+        lifecycle = Lifecycle.TRAIN
         platform = profile_mode.train_platform
         flatten_configurations(
             layers,
@@ -180,8 +184,8 @@ def _generate_configurations_list(
             platform,
         )
 
-    if LifeCycle.TEST in profile_mode.cycle:
-        lifecycle = LifeCycle.TEST
+    if Lifecycle.TEST in profile_mode.cycle:
+        lifecycle = Lifecycle.TEST
         platform = profile_mode.test_platform
         flatten_configurations(
             layers,
