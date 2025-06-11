@@ -13,7 +13,9 @@ from logging import Logger
 from multiprocessing.connection import Connection
 from os import path
 from time import time
-from typing import List, Tuple
+from tracemalloc import start
+from turtle import st
+from typing import Dict, List, Tuple
 
 import keras
 import numpy as np
@@ -23,6 +25,7 @@ import tensorflow as tf
 from keras.models import model_from_json
 
 from eppnad.utils.execution_configuration import ExecutionConfiguration
+from eppnad.utils.execution_result import ExecutionResult
 from eppnad.utils.framework_parameters import Lifecycle, Platform, ProcessSignal
 from eppnad.utils.runtime_snapshot import RuntimeSnapshot
 
@@ -66,7 +69,7 @@ class ExecutionEngine(multiprocessing.Process):
         self.results_pipe = results_pipe
         self.log_signal_pipe = log_signal_pipe
         self.log_result_pipe = log_result_pipe
-        self.results_list: List[Tuple[ExecutionConfiguration, dict]] = []
+        self.results_list: List[ExecutionResult] = []
 
     def run(self):
         """
@@ -125,14 +128,16 @@ class ExecutionEngine(multiprocessing.Process):
         )
 
         # 3. Assemble or load the Keras model
-        model = self._get_model_for_config(config, input_shape)
+        model = self._get_model_for_config(config, input_shape, index)
 
         # 4. Compile the model
         model.compile(
+            jit_compile=False,  # type: ignore
             loss=self.runtime_snapshot.model_execution_configuration.loss_metric_str,
             optimizer=self.runtime_snapshot.model_execution_configuration.optimizer,
             metrics=self.runtime_snapshot.model_execution_configuration.performance_metrics_list,
         )
+
         model.summary(print_fn=self.logger.info)
 
         # 5. Run the measurement routine
@@ -140,13 +145,10 @@ class ExecutionEngine(multiprocessing.Process):
             model, config, X_train, y_train, X_test, y_test
         )
 
-        # 6. Save the trained model if required
-        if self.is_config_train(config):
-            self._save_model_to_storage(model, config)
-
         # 7. Store results and perform cleanup
         self.results_list.append((config, processed_results))
         self.runtime_snapshot.last_profiled_index = index
+        self.runtime_snapshot.save()
         collected = gc.collect()
         self.logger.info(f"Garbage collector: collected {collected} objects.")
 
@@ -178,15 +180,23 @@ class ExecutionEngine(multiprocessing.Process):
         self.log_signal_pipe.send((ProcessSignal.Start, config.platform))
         self.logger.info("[EXECUTION-ENGINE] Signaled logger to START.")
 
-        start_time = time()
-        for _ in range(
+        total_time = 0.0
+
+        for i in range(
             self.runtime_snapshot.model_execution_configuration.number_of_samples
         ):
+            start_time = time()
             results = self._execute_sample(
                 model, config, X_train, y_train, X_test, y_test
             )
+            end_time = time()
+            total_time = total_time + end_time - start_time
+
+            # Save the trained model if required
+            if self.is_config_train(config):
+                self._save_model_to_storage(model, config, i)
+
             sample_results.append(results)
-        end_time = time()
 
         # Signal logger to stop and send back data
         self.log_signal_pipe.send((ProcessSignal.Stop, config.platform))
@@ -195,7 +205,7 @@ class ExecutionEngine(multiprocessing.Process):
         energy_data = self.log_result_pipe.recv()
 
         # Process results
-        total_elapsed_time_s = end_time - start_time
+        total_elapsed_time_s = total_time
         processed_metrics = self._process_statistical_results(sample_results)
         processed_metrics["total_elapsed_time_s"] = total_elapsed_time_s
 
@@ -236,26 +246,61 @@ class ExecutionEngine(multiprocessing.Process):
         # Always evaluate on the test set to get performance metrics
         return model.evaluate(X_test, y_test, verbose=0, return_dict=True)  # type: ignore
 
-    def _process_statistical_results(self, sample_results: List[dict]) -> dict:
+    def _process_statistical_results(self, sample_results: List[Dict]) -> Dict:
         """
-        Calculates the mean and standard error for all collected metrics.
+        Calculates descriptive statistics for all collected metrics.
+
+        For each metric (e.g., 'loss', 'accuracy'), this function computes
+        the mean, median, standard deviation, min/max, and quartiles, providing
+        a rich data set for generating box plots or other detailed visualizations.
+
+        Args:
+            sample_results: A list of dictionaries, where each dictionary is
+                            a result from a single sample run.
+
+        Returns:
+            A dictionary where keys are metric names and values are another
+            dictionary containing the calculated statistics for that metric.
         """
         if not sample_results:
             return {}
 
-        all_metrics = set(sample_results[0].keys())
-        processed_results = {}
+        # Gather all unique metric keys from all sample runs
+        all_metrics = set()
+        for result in sample_results:
+            all_metrics.update(result.keys())
 
+        processed_results = {}
         for metric in all_metrics:
-            metric_values = [res[metric] for res in sample_results if metric in res]
+            # Collect all valid values for the current metric
+            metric_values = [
+                res[metric]
+                for res in sample_results
+                if metric in res and res[metric] is not None
+            ]
+
             if not metric_values:
                 continue
 
-            mean = statistics.mean(metric_values)
-            std_dev = statistics.stdev(metric_values) if len(metric_values) > 1 else 0
-            std_error = std_dev / (len(metric_values) ** 0.5)
+            # Use numpy for efficient and robust statistical calculations
+            values_np = np.array(metric_values)
 
-            processed_results[metric] = {"mean": mean, "error": std_error}
+            # For a single sample, stdev is 0 and all values are the same.
+            if len(values_np) > 1:
+                std_dev = np.std(values_np)
+            else:
+                std_dev = 0
+
+            # Store a rich set of statistics for each metric
+            processed_results[metric] = {
+                "mean": np.mean(values_np),
+                "std_dev": std_dev,
+                "median": np.median(values_np),
+                "min": np.min(values_np),
+                "max": np.max(values_np),
+                "p25": np.percentile(values_np, 25),  # 25th percentile (Q1)
+                "p75": np.percentile(values_np, 75),  # 75th percentile (Q3)
+            }
 
         return processed_results
 
@@ -327,7 +372,7 @@ class ExecutionEngine(multiprocessing.Process):
 
     # region Model Assembly and Handling
     def _get_model_for_config(
-        self, config: ExecutionConfiguration, input_shape: int
+        self, config: ExecutionConfiguration, input_shape: int, index: int
     ) -> keras.Model:
         """
         Provides a Keras model for the given configuration.
@@ -337,7 +382,7 @@ class ExecutionEngine(multiprocessing.Process):
         a new model from scratch.
         """
         if self.is_config_test(config):
-            loaded_model = self._try_load_model_from_storage(config)
+            loaded_model = self._try_load_model_from_storage(config, index)
             if loaded_model:
                 self.logger.info(
                     "[EXECUTION-ENGINE] Loaded pre-trained model from storage."
@@ -365,19 +410,21 @@ class ExecutionEngine(multiprocessing.Process):
 
         return model
 
-    def _get_model_filepaths(self, config: ExecutionConfiguration) -> Tuple[str, str]:
+    def _get_model_filepaths(
+        self, config: ExecutionConfiguration, index: int
+    ) -> Tuple[str, str]:
         """Generates the filepaths for a model's JSON and weights."""
         base_name = (
             f"{self.runtime_snapshot.model_name}_"
             f"{config.number_of_layers}_{config.number_of_units}_"
-            f"{config.number_of_epochs}_{config.number_of_features}"
+            f"{config.number_of_epochs}_{config.number_of_features}_{config.sampling_rate}_{index}"
         )
         json_path = f"./models/json_models/{base_name}.json"
         weights_path = f"./models/models_weights/{base_name}.weights.h5"
         return json_path, weights_path
 
     def _try_load_model_from_storage(
-        self, config: ExecutionConfiguration
+        self, config: ExecutionConfiguration, index: int
     ) -> keras.Model | None:
         """
         Tries to load a model's architecture and weights from disk.
@@ -385,7 +432,7 @@ class ExecutionEngine(multiprocessing.Process):
         Returns:
             The loaded Keras model if successful, otherwise None.
         """
-        json_path, weights_path = self._get_model_filepaths(config)
+        json_path, weights_path = self._get_model_filepaths(config, index)
         if not path.exists(json_path) or not path.exists(weights_path):
             return None
 
@@ -400,10 +447,10 @@ class ExecutionEngine(multiprocessing.Process):
             return None
 
     def _save_model_to_storage(
-        self, model: keras.Model, config: ExecutionConfiguration
+        self, model: keras.Model, config: ExecutionConfiguration, index: int
     ):
         """Saves a model's architecture and weights to disk."""
-        json_path, weights_path = self._get_model_filepaths(config)
+        json_path, weights_path = self._get_model_filepaths(config, index)
 
         try:
             # Save architecture

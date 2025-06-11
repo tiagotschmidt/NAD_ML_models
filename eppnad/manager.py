@@ -84,11 +84,7 @@ def profile(
         profile_mode,
     )
 
-    # sample_size = int(len(preprocessed_dataset) * sampling_rate)
-    # preprocessed_dataset = preprocessed_dataset.sample(sample_size)
-
     start_pipe_engine_side, start_engine_pipe_manager_side = multiprocessing.Pipe()
-    start_pipe_logger_side, start_logger_pipe_manager_side = multiprocessing.Pipe()
     log_side_signal_pipe, engine_side_signal_pipe = multiprocessing.Pipe()
     engine_side_result_pipe, log_side_result_pipe = multiprocessing.Pipe()
     results_pipe_manager_side, results_pipe_engine_side = multiprocessing.Pipe()
@@ -120,25 +116,23 @@ def profile(
         engine_side_result_pipe,
     )
 
-    logger = EnergyMonitor(
-        start_pipe_logger_side,
-        logger,  # type: ignore
+    energy_monitor = EnergyMonitor(
         log_side_signal_pipe,
         log_side_result_pipe,
+        logger,  # type: ignore
     )
 
     engine.start()
-    logger.start()
+    energy_monitor.start()
 
     start_engine_pipe_manager_side.send(True)
-    start_logger_pipe_manager_side.send(True)
 
     list_results = results_pipe_manager_side.recv()
 
     final_results = plot(list_results, performance_metrics_list, statistical_samples)
 
     engine.join()
-    logger.join()
+    energy_monitor.join()
 
     return final_results
 
