@@ -1,85 +1,142 @@
-import gc
-import subprocess
-import pyRAPL
 import multiprocessing
+import subprocess
+import time
+from logging import Logger
 from multiprocessing.connection import Connection
+
+import pyRAPL
 
 from eppnad.utils.framework_parameters import Platform, ProcessSignal
 
 
 class EnergyMonitor(multiprocessing.Process):
+    """
+    A dedicated process for monitoring energy consumption of CPU and GPU.
+
+    This process listens for signals to start and stop monitoring on a given
+    hardware platform. It uses pyRAPL for CPU energy measurements and the
+    nvidia-smi command-line tool for GPU power sampling.
+    """
+
     def __init__(
         self,
-        start_pipe: Connection,
-        internal_logger,
         signal_pipe: Connection,
         result_pipe: Connection,
+        logger: Logger,
     ):
-        super(EnergyMonitor, self).__init__()
-        self.start_pipe = start_pipe
-        self.internal_logger = internal_logger
+        """
+        Initializes the EnergyProfiler process.
+
+        Args:
+            signal_pipe: The pipe to receive start/stop signals from the engine.
+            result_pipe: The pipe to send measurement results back to the engine.
+            logger: A shared logger instance for logging messages.
+        """
+        super().__init__()
         self.signal_pipe = signal_pipe
         self.result_pipe = result_pipe
+        self.logger = logger
 
     def run(self):
-        start_trigger = self.start_pipe.recv()
-        stop = False
+        """
+        The main loop for the profiler process.
 
+        It waits for a signal and dispatches to the appropriate monitoring
+        function. The loop terminates upon receiving a `FinalStop` signal.
+        """
+        self.logger.info(
+            "[PROFILER] EnergyProfiler process started and waiting for signals."
+        )
         pyRAPL.setup()
-        cpu_power_meter = pyRAPL.Measurement("measurement")
-        gpu_power_results = []
 
-        while not stop:
-            gpu_power_results = []
-            (signal, platform) = self.signal_pipe.recv()
-            self.internal_logger.info(
-                "[LOGGER] Starting logging for:" + str(signal) + ";" + str(platform)
+        while True:
+            try:
+                signal, platform = self.signal_pipe.recv()
+            except EOFError:
+                self.logger.warning(
+                    "[PROFILER] Signal pipe closed unexpectedly. Shutting down."
+                )
+                break
+
+            if signal == ProcessSignal.Start:
+                self.logger.info(
+                    f"[PROFILER] Received START signal for {platform.name}."
+                )
+                if platform == Platform.CPU:
+                    self._profile_cpu()
+                elif platform == Platform.GPU:
+                    self._profile_gpu()
+
+            elif signal == ProcessSignal.FinalStop:
+                self.logger.info(
+                    "[PROFILER] Received FINAL_STOP signal. Shutting down."
+                )
+                break
+
+    def _profile_cpu(self):
+        """
+        Measures CPU energy consumption for a defined period.
+
+        This method begins a pyRAPL measurement and waits for a 'Stop' signal
+        to end it. It then safely extracts and sends the energy data.
+        """
+        measurement = pyRAPL.Measurement("rapl_measurement")
+        measurement.begin()
+
+        # Wait for the stop signal
+        self.signal_pipe.recv()
+        measurement.end()
+        self.logger.info("[PROFILER] Stopped CPU profiling.")
+
+        energy_microjoules = 0
+        try:
+            # Safely access the result to prevent crashes
+            if measurement.result and measurement.result.pkg:
+                energy_microjoules = measurement.result.pkg[0]
+            else:
+                self.logger.warning(
+                    "[PROFILER] pyRAPL result was empty. Reporting 0 energy."
+                )
+        except (AttributeError, IndexError) as e:
+            self.logger.error(
+                f"[PROFILER] Could not extract pyRAPL data: {e}. Reporting 0."
             )
-            if signal.value == ProcessSignal.Start.value:
-                if platform.value == Platform.CPU.value:
-                    cpu_power_meter.begin()
 
-                    (signal, platform) = self.signal_pipe.recv()
-                    self.internal_logger.info(
-                        "[LOGGER] Stop logging for:" + str(signal) + ";" + str(platform)
-                    )
-                    cpu_power_meter.end()
-                    total_energy_microjoules = 0
-                    if cpu_power_meter != None and cpu_power_meter.result != None and cpu_power_meter.result.pkg != None and cpu_power_meter.result.pkg[0] != None:  # type: ignore
-                        total_energy_microjoules = cpu_power_meter.result.pkg[0]  # type: ignore
-                    else:
-                        self.internal_logger.warning(
-                            "[LOGGER] Registering poisonous energy information."
-                        )
-                        total_energy_microjoules = 0
-                        cpu_power_meter = pyRAPL.Measurement("measurement")
-                    self.result_pipe.send(total_energy_microjoules)  # type: ignore
-                    self.internal_logger.info("[LOGGER] Sending cpu total energy.")
-                else:
-                    while signal.value != ProcessSignal.Stop.value:
-                        result = subprocess.run(
-                            ["nvidia-smi", "--query-gpu=power.draw", "--format=csv"],
-                            capture_output=True,
-                            text=True,
-                        )
-                        output = result.stdout.strip()
-                        power_usage_str = output.split("\n")[1]
-                        power_usage = float(power_usage_str[:-2])
-                        gpu_power_results.append(power_usage)
+        self.result_pipe.send(energy_microjoules)
+        self.logger.info(f"[PROFILER] Sent CPU energy result: {energy_microjoules} uJ.")
 
-                        if self.signal_pipe.poll(timeout=0.005):
-                            (signal, platform) = self.signal_pipe.recv()
-                            self.internal_logger.info(
-                                "[LOGGER] Stop logging for:"
-                                + str(signal)
-                                + ";"
-                                + str(platform)
-                            )
+    def _profile_gpu(self):
+        """
+        Samples GPU power usage at a high frequency.
 
-                    self.result_pipe.send(gpu_power_results)
-                    self.internal_logger.info(
-                        "[LOGGER] Sending GPU power samples. Total:"
-                        + str(len(gpu_power_results))
-                    )
-            if signal.value == ProcessSignal.FinalStop.value:
-                stop = True
+        This method repeatedly calls `nvidia-smi` to get power readings until
+        a 'Stop' signal is received. It then sends the list of all collected
+        power samples.
+        """
+        power_samples = []
+        while not self.signal_pipe.poll():  # Continue as long as no stop signal
+            try:
+                result = subprocess.run(
+                    [
+                        "nvidia-smi",
+                        "--query-gpu=power.draw",
+                        "--format=csv,noheader,nounits",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=True,  # Raise exception on non-zero exit codes
+                )
+                power_usage = float(result.stdout.strip())
+                power_samples.append(power_usage)
+                time.sleep(0.01)  # Small sleep to prevent overwhelming the CPU
+            except (subprocess.CalledProcessError, ValueError, FileNotFoundError) as e:
+                self.logger.error(
+                    f"[PROFILER] nvidia-smi query failed: {e}. Skipping sample."
+                )
+
+        # Consume the stop signal
+        self.signal_pipe.recv()
+        self.logger.info("[PROFILER] Stopped GPU profiling.")
+
+        self.result_pipe.send(power_samples)
+        self.logger.info(f"[PROFILER] Sent {len(power_samples)} GPU power samples.")
