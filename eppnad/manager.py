@@ -7,13 +7,17 @@ import logging
 import datetime
 from pathlib import Path
 
-from eppnad.utils.execution_configuration import ExecutionConfiguration
+from eppnad.core.energy_monitor import EnergyMonitor
+from eppnad.core.execution_engine import ExecutionEngine
+from eppnad.utils.execution_configuration import (
+    ExecutionConfiguration,
+    Lifecycle,
+    Platform,
+)
 from eppnad.utils.framework_parameters import (
     FrameworkParameterType,
-    Lifecycle,
-    ProfileMode,
     PercentageRangeParameter,
-    Platform,
+    ProfileMode,
     RangeMode,
     RangeParameter,
 )
@@ -24,7 +28,7 @@ from eppnad.utils.model_execution_config import (
 )
 from eppnad.utils.plot_list_collection import PlotListCollection
 from eppnad.utils.runtime_snapshot import RuntimeSnapshot
-from .plotter import plot
+
 
 logger = logging.getLogger(__name__)
 timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -35,8 +39,6 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(message)s",
 )
 
-from .execution_engine import ExecutionEngine
-from .core.energy_monitor import EnergyMonitor
 
 DOT_DIR = "./"
 
@@ -90,7 +92,6 @@ def profile(
     start_pipe_engine_side, start_engine_pipe_manager_side = multiprocessing.Pipe()
     log_side_signal_pipe, engine_side_signal_pipe = multiprocessing.Pipe()
     engine_side_result_pipe, log_side_result_pipe = multiprocessing.Pipe()
-    results_pipe_manager_side, results_pipe_engine_side = multiprocessing.Pipe()
 
     modelExecutionConfig = ModelExecutionConfig(
         first_custom_layer_code,
@@ -118,10 +119,10 @@ def profile(
 
     engine = ExecutionEngine(
         user_model_function,
+        profile_execution_dir,
         runtime_snapshot,
         logger,  # type: ignore
         start_pipe_engine_side,
-        results_pipe_engine_side,
         engine_side_signal_pipe,
         engine_side_result_pipe,
     )
@@ -137,14 +138,13 @@ def profile(
 
     start_engine_pipe_manager_side.send(True)
 
-    list_results = results_pipe_manager_side.recv()
-
-    final_results = plot(list_results, performance_metrics_list, statistical_samples)
+    # final_results = plot(list_results, performance_metrics_list, statistical_samples)
 
     engine.join()
     energy_monitor.join()
 
-    return final_results
+    final_results = {}
+    return final_results  # type: ignore
 
 
 def _generate_configurations_list(
