@@ -4,7 +4,7 @@ import subprocess
 from unittest.mock import MagicMock, call
 import pytest
 
-from eppnad.energy_monitor import EnergyMonitor
+from eppnad.core.energy_monitor import EnergyMonitor
 from eppnad.utils.framework_parameters import Platform, ProcessSignal
 
 # --- Test Fixtures ---
@@ -31,7 +31,7 @@ def mock_logger(mocker):
 class TestEnergyProfiler:
     """Tests the core logic of the EnergyProfiler class."""
 
-    def test_cpu_profiling_workflow(self, mock_pipes, mock_logger, mocker):
+    def test_CPU_profiling_workflow(self, mock_pipes, mock_logger, mocker):
         """
         Tests that the profiler correctly handles a start/stop CPU cycle
         and sends a valid result.
@@ -45,7 +45,7 @@ class TestEnergyProfiler:
         ]
 
         # Mock pyRAPL
-        mock_pyrapl = mocker.patch("eppnad.energy_monitor.pyRAPL")
+        mock_pyrapl = mocker.patch("eppnad.core.energy_monitor.pyRAPL")
         mock_measurement = MagicMock()
         mock_measurement.result.pkg = [123456]  # Fake energy reading
         mock_pyrapl.Measurement.return_value = mock_measurement
@@ -60,7 +60,7 @@ class TestEnergyProfiler:
         mock_measurement.end.assert_called_once()
         mock_pipes["result_pipe"].send.assert_called_once_with(123456)
 
-    def test_gpu_profiling_workflow(self, mock_pipes, mock_logger, mocker):
+    def test_GPU_profiling_workflow(self, mock_pipes, mock_logger, mocker):
         """
         Tests that the profiler correctly samples GPU power until a stop
         signal is received.
@@ -76,7 +76,7 @@ class TestEnergyProfiler:
         mock_pipes["signal_pipe"].poll.side_effect = [False, False, True]
 
         # Mock subprocess.run to simulate nvidia-smi output
-        mock_subprocess = mocker.patch("eppnad.energy_monitor.subprocess.run")
+        mock_subprocess = mocker.patch("eppnad.core.energy_monitor.subprocess.run")
         mock_subprocess.return_value.stdout = "45.12\n"
 
         # 2. Initialize and run

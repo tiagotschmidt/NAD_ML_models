@@ -36,6 +36,6 @@ clean:
 	find . -type f -name "*.pyc" -delete
 	find . -type d -name "__pycache__" -delete
 
-test:
+test: init
 	@echo "Running unit tests..."
 	@pytest
