@@ -31,7 +31,7 @@ Refactor the existing, scattered scripts into a modular and cohesive framework. 
     - [ ] Update execution logic to enable intermitent execution.
     - [ ] Update result saving logic to provide more insightfull data.
     - [ ] Update profile saving logic to use long term storage periodically (csv?). 
-    - [ ] Create a runtime checkpoint logic.
+    - [x] Create a runtime checkpoint logic.
     - [ ] Create multiple profiles functions (full, intermitent).
     - [ ] Add unit tests for all functions.
     
@@ -39,7 +39,7 @@ Refactor the existing, scattered scripts into a modular and cohesive framework. 
 - [ ] **Goal:** Make the `EnergyMonitor` a better energy watchdog process.
 - [ ] **Action:**
     - [ ] Move `logger.py` to `src/eppnad/core/`.    
-    - [ ] Add unit tests for all functions.
+    - [x] Add unit tests for all functions.
     
 ### 2.3. Refactor the Manager
 - [ ] **Goal:** Make the `Manager` a better entrypoint process for the framework..
@@ -66,7 +66,7 @@ Build confidence in the framework's reliability through a structured, incrementa
 
 ### 3.2. Implement Unit Tests Incrementally
 - [ ] **Target:** Core framework components.
-    - [ ] Write unit tests for the `Logger` to verify message formatting and file output.
+    - [x] Write unit tests for the `EnergyMonitor` to verify message formatting and output.
     - [x] Write unit tests for the `Manager` to ensure it correctly parses configurations.
     - [ ] Write unit tests for the `ExecutionEngine` using a "mock" model object to test the execution flow without training a real model.
 
