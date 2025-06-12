@@ -127,17 +127,17 @@ def _generate_metric_and_energy_line_plot(
     textstr = ""
 
     if hyperparameter_name == "Epochs":
-        custom_name = f"layers_{config.number_of_layers}_units_{config.number_of_units}_features_{config.number_of_features}_{config.platform.name}_{config.cycle.name}.pdf"
-        textstr = f"Samples: {number_of_samples}\nLayers: {config.number_of_layers}\nUnits: {config.number_of_units}\nFeatures: {config.number_of_features}\nPlatform: {config.platform.name}\nCycle: {config.cycle.name}"
+        custom_name = f"layers_{config.layers}_units_{config.units}_features_{config.features}_{config.platform.name}_{config.cycle.name}.pdf"
+        textstr = f"Samples: {number_of_samples}\nLayers: {config.layers}\nUnits: {config.units}\nFeatures: {config.features}\nPlatform: {config.platform.name}\nCycle: {config.cycle.name}"
     elif hyperparameter_name == "Features":
-        custom_name = f"layers_{config.number_of_layers}_units_{config.number_of_units}_epochs_{config.number_of_epochs}_{config.platform.name}_{config.cycle.name}.pdf"
-        textstr = f"Samples: {number_of_samples}\nLayers: {config.number_of_layers}\nUnits: {config.number_of_units}\nEpochs: {config.number_of_epochs}\nPlatform: {config.platform.name}\nCycle: {config.cycle.name}"
+        custom_name = f"layers_{config.layers}_units_{config.units}_epochs_{config.epochs}_{config.platform.name}_{config.cycle.name}.pdf"
+        textstr = f"Samples: {number_of_samples}\nLayers: {config.layers}\nUnits: {config.units}\nEpochs: {config.epochs}\nPlatform: {config.platform.name}\nCycle: {config.cycle.name}"
     elif hyperparameter_name == "Layers":
-        custom_name = f"units_{config.number_of_units}_epochs_{config.number_of_epochs}_features_{config.number_of_features}_{config.platform.name}_{config.cycle.name}.pdf"
-        textstr = f"Samples: {number_of_samples}\nUnits: {config.number_of_units}\nEpochs: {config.number_of_epochs}\nFeatures: {config.number_of_features}\nPlatform: {config.platform.name}\nCycle: {config.cycle.name}"
+        custom_name = f"units_{config.units}_epochs_{config.epochs}_features_{config.features}_{config.platform.name}_{config.cycle.name}.pdf"
+        textstr = f"Samples: {number_of_samples}\nUnits: {config.units}\nEpochs: {config.epochs}\nFeatures: {config.features}\nPlatform: {config.platform.name}\nCycle: {config.cycle.name}"
     elif hyperparameter_name == "Units":
-        custom_name = f"layers_{config.number_of_layers}_epochs_{config.number_of_epochs}_features_{config.number_of_features}_{config.platform.name}_{config.cycle.name}.pdf"
-        textstr = f"Samples: {number_of_samples}\nLayers: {config.number_of_layers}\nEpochs: {config.number_of_epochs}\nFeatures: {config.number_of_features}\nPlatform: {config.platform.name}\nCycle: {config.cycle.name}"
+        custom_name = f"layers_{config.layers}_epochs_{config.epochs}_features_{config.features}_{config.platform.name}_{config.cycle.name}.pdf"
+        textstr = f"Samples: {number_of_samples}\nLayers: {config.layers}\nEpochs: {config.epochs}\nFeatures: {config.features}\nPlatform: {config.platform.name}\nCycle: {config.cycle.name}"
 
     x_labels = hyperparameter_list
     metric_values = []
@@ -279,9 +279,9 @@ def _is_same_epoch_snapshot(
     saved_configuration: ExecutionConfiguration,
 ):
     return (
-        configuration.number_of_features == saved_configuration.number_of_features
-        and configuration.number_of_layers == saved_configuration.number_of_layers
-        and configuration.number_of_units == saved_configuration.number_of_units
+        configuration.features == saved_configuration.features
+        and configuration.layers == saved_configuration.layers
+        and configuration.units == saved_configuration.units
     )
 
 
@@ -290,9 +290,9 @@ def _is_same_features_snapshot(
     saved_configuration: ExecutionConfiguration,
 ):
     return (
-        configuration.number_of_epochs == saved_configuration.number_of_epochs
-        and configuration.number_of_layers == saved_configuration.number_of_layers
-        and configuration.number_of_units == saved_configuration.number_of_units
+        configuration.epochs == saved_configuration.epochs
+        and configuration.layers == saved_configuration.layers
+        and configuration.units == saved_configuration.units
     )
 
 
@@ -301,9 +301,9 @@ def _is_same_units_snapshot(
     saved_configuration: ExecutionConfiguration,
 ):
     return (
-        configuration.number_of_epochs == saved_configuration.number_of_epochs
-        and configuration.number_of_layers == saved_configuration.number_of_layers
-        and configuration.number_of_features == saved_configuration.number_of_features
+        configuration.epochs == saved_configuration.epochs
+        and configuration.layers == saved_configuration.layers
+        and configuration.features == saved_configuration.features
     )
 
 
@@ -312,7 +312,7 @@ def _is_same_layers_snapshot(
     saved_configuration: ExecutionConfiguration,
 ):
     return (
-        configuration.number_of_epochs == saved_configuration.number_of_epochs
-        and configuration.number_of_units == saved_configuration.number_of_units
-        and configuration.number_of_features == saved_configuration.number_of_features
+        configuration.epochs == saved_configuration.epochs
+        and configuration.units == saved_configuration.units
+        and configuration.features == saved_configuration.features
     )

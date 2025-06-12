@@ -33,7 +33,7 @@ class TestExecutionConfiguration:
         config = ExecutionConfiguration(
             layers=layers,
             units=units,
-            number_of_epochs=epochs,
+            epochs=epochs,
             features=features,
             sampling_rate=sampling_rate,
             platform=platform,
@@ -41,10 +41,10 @@ class TestExecutionConfiguration:
         )
 
         # 2. Assert that all attributes were stored correctly
-        assert config.number_of_layers == layers
-        assert config.number_of_units == units
-        assert config.number_of_epochs == epochs
-        assert config.number_of_features == features
+        assert config.layers == layers
+        assert config.units == units
+        assert config.epochs == epochs
+        assert config.features == features
         assert config.sampling_rate == sampling_rate
         assert config.platform == platform
         assert config.cycle == cycle
@@ -58,7 +58,7 @@ class TestExecutionConfiguration:
         config = ExecutionConfiguration(
             layers=5,
             units=100,
-            number_of_epochs=25,
+            epochs=25,
             features=15,
             sampling_rate=0.9,
             platform=Platform.GPU,

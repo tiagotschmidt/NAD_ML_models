@@ -18,7 +18,7 @@ class ExecutionConfiguration:
         self,
         layers: int,
         units: int,
-        number_of_epochs: int,
+        epochs: int,
         features: int,
         sampling_rate: float,
         platform: Platform,
@@ -36,10 +36,10 @@ class ExecutionConfiguration:
             platform: The execution platform (CPU or GPU) for this run.
             cycle: The lifecycle phase (Train or Test) for this run.
         """
-        self.number_of_layers = layers
-        self.number_of_units = units
-        self.number_of_epochs = number_of_epochs
-        self.number_of_features = features
+        self.layers = layers
+        self.units = units
+        self.epochs = epochs
+        self.features = features
         self.sampling_rate = sampling_rate
         self.platform = platform
         self.cycle = cycle
@@ -56,10 +56,10 @@ class ExecutionConfiguration:
         """
         return (
             f"ExecutionConfiguration("
-            f"layers={self.number_of_layers}, "
-            f"units={self.number_of_units}, "
-            f"epochs={self.number_of_epochs}, "
-            f"features={self.number_of_features}, "
+            f"layers={self.layers}, "
+            f"units={self.units}, "
+            f"epochs={self.epochs}, "
+            f"features={self.features}, "
             f"sampling_rate={self.sampling_rate}, "
             f"platform={self.platform.name}, "
             f"cycle={self.cycle.name}"

@@ -237,7 +237,7 @@ class ExecutionEngine(multiprocessing.Process):
             model.fit(
                 X_train,
                 y_train,
-                epochs=config.number_of_epochs,
+                epochs=config.epochs,
                 batch_size=self.runtime_snapshot.model_execution_configuration.batch_size,
                 validation_split=0,
                 verbose=1,  # type: ignore
@@ -338,7 +338,7 @@ class ExecutionEngine(multiprocessing.Process):
         full_dataset = full_dataset.sample(frac=config.sampling_rate)
 
         # Select the number of features
-        num_features = min(config.number_of_features, full_dataset.shape[1] - 1)
+        num_features = min(config.features, full_dataset.shape[1] - 1)
         features = full_dataset.iloc[:, 0:num_features].values
         target = full_dataset[
             [model_execution_configuration.dataset_target_label]
@@ -401,11 +401,9 @@ class ExecutionEngine(multiprocessing.Process):
         model_config = self.runtime_snapshot.model_execution_configuration
         model = self.user_model_function  # Start with the base user model
 
-        model_config.first_custom_layer_code(model, config.number_of_units, input_shape)
-        for _ in range(config.number_of_layers - 1):
-            model_config.repeated_custom_layer_code(
-                model, config.number_of_units, input_shape
-            )
+        model_config.first_custom_layer_code(model, config.units, input_shape)
+        for _ in range(config.layers - 1):
+            model_config.repeated_custom_layer_code(model, config.units, input_shape)
         model_config.final_custom_layer_code(model)
 
         return model
@@ -416,8 +414,8 @@ class ExecutionEngine(multiprocessing.Process):
         """Generates the filepaths for a model's JSON and weights."""
         base_name = (
             f"{self.runtime_snapshot.model_name}_"
-            f"{config.number_of_layers}_{config.number_of_units}_"
-            f"{config.number_of_epochs}_{config.number_of_features}_{config.sampling_rate}_{index}"
+            f"{config.layers}_{config.units}_"
+            f"{config.epochs}_{config.features}_{config.sampling_rate}_{index}"
         )
         json_path = f"./models/json_models/{base_name}.json"
         weights_path = f"./models/models_weights/{base_name}.weights.h5"
