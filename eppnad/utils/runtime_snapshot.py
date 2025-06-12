@@ -29,7 +29,7 @@ class RuntimeSnapshot:
     def __init__(
         self,
         model_name: str,
-        root_directory: str,
+        profile_execution_directory: str,
         configuration_list: List[ExecutionConfiguration],
         model_execution_config: ModelExecutionConfig,
         last_profiled_index: int = -1,
@@ -48,7 +48,7 @@ class RuntimeSnapshot:
                       This is managed internally by the save/load methods.
         """
         self.model_name = model_name
-        self.runtime_snapshot_dir = root_directory + "runtime_snapshot/"
+        self.runtime_snapshot_dir = profile_execution_directory + "runtime_snapshot/"
         self.configuration_list = configuration_list
         self.model_execution_configuration = model_execution_config
         self.last_profiled_index = last_profiled_index

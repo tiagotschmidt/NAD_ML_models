@@ -35,7 +35,7 @@ def snapshot_instance(temp_snapshot_dir):
     """
     return RuntimeSnapshot(
         model_name="test_model",
-        root_directory=temp_snapshot_dir + "test_model/",
+        profile_execution_directory=temp_snapshot_dir + "test_model/",
         configuration_list=[1, 2, 3],  # type: ignore
         model_execution_config=None,  # Use None to make it picklable # type: ignore
         last_profiled_index=-1,
