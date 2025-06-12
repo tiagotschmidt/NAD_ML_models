@@ -25,7 +25,14 @@ import tensorflow as tf
 from keras.models import model_from_json
 
 from eppnad.utils.execution_configuration import ExecutionConfiguration
-from eppnad.utils.execution_result import ExecutionResult
+from eppnad.utils.execution_result import (
+    EnergyExecutionResult,
+    ExecutionResult,
+    Metrics,
+    ResultsWriter,
+    StatisticalValues,
+    TimeAndEnergy,
+)
 from eppnad.utils.framework_parameters import Lifecycle, Platform, ProcessSignal
 from eppnad.utils.runtime_snapshot import RuntimeSnapshot
 
@@ -43,12 +50,12 @@ class ExecutionEngine(multiprocessing.Process):
     def __init__(
         self,
         user_model_function: keras.models.Model,
+        profile_execution_directory: str,
         runtime_snapshot: RuntimeSnapshot,
         logger: Logger,
         start_pipe: Connection,
-        results_pipe: Connection,
         log_signal_pipe: Connection,
-        log_result_pipe: Connection,
+        energy_monitor_pipe: Connection,
     ):
         """
         Initializes the ExecutionEngine process.
@@ -66,10 +73,10 @@ class ExecutionEngine(multiprocessing.Process):
         self.runtime_snapshot = runtime_snapshot
         self.logger = logger
         self.start_pipe = start_pipe
-        self.results_pipe = results_pipe
-        self.log_signal_pipe = log_signal_pipe
-        self.log_result_pipe = log_result_pipe
-        self.results_list: List[ExecutionResult] = []
+        self.signal_energy_pipe = log_signal_pipe
+        self.energy_monitor_pipe = energy_monitor_pipe
+        self.results_writer = ResultsWriter(profile_execution_directory)
+        self.model_directory = profile_execution_directory + "models/"
 
     def run(self):
         """
@@ -91,13 +98,7 @@ class ExecutionEngine(multiprocessing.Process):
         ):
             self._execute_on_platform(index, config)
 
-        self.results_pipe.send(self.results_list)
-
-        self.logger.info(
-            "[EXECUTION-ENGINE] All configurations processed. Sending results."
-        )
-
-        self.log_signal_pipe.send(ProcessSignal.FinalStop)
+        self.signal_energy_pipe.send(ProcessSignal.FinalStop)
         self.logger.info("[EXECUTION-ENGINE] Sent final stop signal to logger.")
 
     # region Platform Execution
@@ -141,12 +142,20 @@ class ExecutionEngine(multiprocessing.Process):
         model.summary(print_fn=self.logger.info)
 
         # 5. Run the measurement routine
-        processed_results = self._measurement_routine(
-            model, config, X_train, y_train, X_test, y_test
+        processed_results, average_elapsed_time_s, average_energy = (
+            self._measurement_routine(model, config, X_train, y_train, X_test, y_test)
         )
 
         # 7. Store results and perform cleanup
-        self.results_list.append((config, processed_results))
+        self.results_writer.append_execution_result(
+            ExecutionResult((config, processed_results))
+        )
+        self.results_writer.append_energy_result(
+            EnergyExecutionResult(
+                (config, TimeAndEnergy(average_elapsed_time_s, average_energy))
+            )
+        )
+        # self.results_list.append((config, processed_results))
         self.runtime_snapshot.last_profiled_index = index
         self.runtime_snapshot.save()
         collected = gc.collect()
@@ -166,62 +175,96 @@ class ExecutionEngine(multiprocessing.Process):
         y_train: np.ndarray,
         X_test: np.ndarray,
         y_test: np.ndarray,
-    ) -> dict:
+    ) -> tuple[Metrics, float, float]:
         """
         Handles the core measurement loop for performance and energy.
 
-        This function signals the logger, runs the model fitting or evaluation
-        for a number of statistical samples, and calculates the final averaged
-        metrics for time, energy, and performance.
+        This function orchestrates a full measurement cycle. It signals the
+        energy profiler, runs the model training or evaluation for a number of
+        statistical samples, and calculates the final averaged metrics.
+
+        It includes a retry mechanism: if the energy measurement from the
+        profiler is invalid (resulting in 0 Joules), it will automatically
+        repeat the entire measurement process up to a defined number of times.
         """
-        sample_results = []
+        # --- Retry Mechanism Setup ---
+        retry_count = 0
+        measurement_successful = False
 
-        # Signal logger to start recording energy
-        self.log_signal_pipe.send((ProcessSignal.Start, config.platform))
-        self.logger.info("[EXECUTION-ENGINE] Signaled logger to START.")
+        # --- Variables to store the final, successful results ---
+        processed_metrics: Metrics = {}
+        total_elapsed_time_s = 0.0
+        avg_energy = 0.0
 
-        total_time = 0.0
+        while not measurement_successful:
+            # --- Reset results for the current attempt ---
+            sample_results = []
+            total_time_this_attempt = 0.0
 
-        for i in range(
-            self.runtime_snapshot.model_execution_configuration.number_of_samples
-        ):
-            start_time = time()
-            results = self._execute_sample(
-                model, config, X_train, y_train, X_test, y_test
+            self.logger.info(
+                f"[EXECUTION-ENGINE] Starting measurement attempt {retry_count + 1}..."
             )
-            end_time = time()
-            total_time = total_time + end_time - start_time
 
-            # Save the trained model if required
-            if self.is_config_train(config):
-                self._save_model_to_storage(model, config, i)
+            # 1. Signal profiler to start recording energy
+            self.signal_energy_pipe.send((ProcessSignal.Start, config.platform))
+            self.logger.info("[EXECUTION-ENGINE] Signaled profiler to START.")
 
-            sample_results.append(results)
+            # 2. Run the performance measurement samples
+            for i in range(
+                self.runtime_snapshot.model_execution_configuration.number_of_samples
+            ):
+                start_time = time()
+                results = self._execute_sample(
+                    model, config, X_train, y_train, X_test, y_test
+                )
+                end_time = time()
+                total_time_this_attempt += end_time - start_time
 
-        # Signal logger to stop and send back data
-        self.log_signal_pipe.send((ProcessSignal.Stop, config.platform))
-        self.logger.info("[EXECUTION-ENGINE] Signaled logger to STOP.")
+                if self.is_config_train(config):
+                    self._save_model_to_storage(model, config, i)
+                sample_results.append(results)
 
-        energy_data = self.log_result_pipe.recv()
+            # 3. Signal profiler to stop and send back data
+            self.signal_energy_pipe.send((ProcessSignal.Stop, config.platform))
+            self.logger.info("[EXECUTION-ENGINE] Signaled profiler to STOP.")
+            energy_data = self.energy_monitor_pipe.recv()
 
-        # Process results
-        total_elapsed_time_s = total_time
-        processed_metrics = self._process_statistical_results(sample_results)
-        processed_metrics["total_elapsed_time_s"] = total_elapsed_time_s
+            # 4. Calculate the average energy for this attempt
+            current_avg_energy = self._calculate_average_energy(
+                total_time_this_attempt, energy_data, config.platform
+            )
 
-        avg_energy = self._calculate_average_energy(
-            total_elapsed_time_s, energy_data, config.platform
-        )
-        processed_metrics["average_energy_consumption_joules"] = avg_energy
+            # 5. Check if the measurement was valid
+            if current_avg_energy > 0:
+                self.logger.info(
+                    "[EXECUTION-ENGINE] Successfully obtained valid energy measurement."
+                )
+                # Lock in the results from this successful attempt
+                measurement_successful = True
+                avg_energy = current_avg_energy
+                total_elapsed_time_s = total_time_this_attempt
+                processed_metrics = self._process_statistical_results(sample_results)
+            else:
+                retry_count += 1
+                self.logger.warning(
+                    f"[EXECUTION-ENGINE] Attempt {retry_count}: "
+                    "Invalid energy data received (0 Joules). Retrying measurement."
+                )
 
+        # --- Final Logging and Return ---
         self.logger.info(
             f"[EXECUTION-ENGINE] Total Elapsed time (s): {total_elapsed_time_s}"
         )
         self.logger.info(
-            f"[EXECUTION-ENGINE] Average energy consumption (Joules): {avg_energy}"
+            f"[EXECUTION-ENGINE] Final Average energy consumption (Joules): {avg_energy}"
         )
 
-        return processed_metrics
+        average_execution_time_s = (
+            total_elapsed_time_s
+            / self.runtime_snapshot.model_execution_configuration.number_of_samples
+        )
+
+        return processed_metrics, average_execution_time_s, avg_energy
 
     def _execute_sample(
         self,
@@ -246,7 +289,7 @@ class ExecutionEngine(multiprocessing.Process):
         # Always evaluate on the test set to get performance metrics
         return model.evaluate(X_test, y_test, verbose=0, return_dict=True)  # type: ignore
 
-    def _process_statistical_results(self, sample_results: List[Dict]) -> Dict:
+    def _process_statistical_results(self, sample_results: List[Dict]) -> Metrics:
         """
         Calculates descriptive statistics for all collected metrics.
 
@@ -292,15 +335,15 @@ class ExecutionEngine(multiprocessing.Process):
                 std_dev = 0
 
             # Store a rich set of statistics for each metric
-            processed_results[metric] = {
-                "mean": np.mean(values_np),
-                "std_dev": std_dev,
-                "median": np.median(values_np),
-                "min": np.min(values_np),
-                "max": np.max(values_np),
-                "p25": np.percentile(values_np, 25),  # 25th percentile (Q1)
-                "p75": np.percentile(values_np, 75),  # 75th percentile (Q3)
-            }
+            processed_results[metric] = StatisticalValues(
+                mean=np.mean(values_np),  # type: ignore
+                std_dev=std_dev,  # type: ignore
+                median=np.median(values_np),  # type: ignore
+                min=np.min(values_np),
+                max=np.max(values_np),
+                p25=np.percentile(values_np, 25),  # type: ignore
+                p75=np.percentile(values_np, 75),  # type: ignore
+            )
 
         return processed_results
 
@@ -417,8 +460,10 @@ class ExecutionEngine(multiprocessing.Process):
             f"{config.layers}_{config.units}_"
             f"{config.epochs}_{config.features}_{config.sampling_rate}_{index}"
         )
-        json_path = f"./models/json_models/{base_name}.json"
-        weights_path = f"./models/models_weights/{base_name}.weights.h5"
+        json_path = self.model_directory + f"/json_models/{base_name}.json"
+        weights_path = (
+            self.model_directory + f"./models/models_weights/{base_name}.weights.h5"
+        )
         return json_path, weights_path
 
     def _try_load_model_from_storage(
