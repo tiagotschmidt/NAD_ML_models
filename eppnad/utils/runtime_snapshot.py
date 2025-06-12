@@ -24,12 +24,12 @@ class RuntimeSnapshot:
     """
 
     # --- Class-level constants ---
-    RUNTIME_SNAPSHOT_DIR = "./runtime_snapshot/"
     _logger = logging.getLogger(__name__)
 
     def __init__(
         self,
         model_name: str,
+        root_directory: str,
         configuration_list: List[ExecutionConfiguration],
         model_execution_config: ModelExecutionConfig,
         last_profiled_index: int = -1,
@@ -48,6 +48,7 @@ class RuntimeSnapshot:
                       This is managed internally by the save/load methods.
         """
         self.model_name = model_name
+        self.runtime_snapshot_dir = root_directory + "runtime_snapshot/"
         self.configuration_list = configuration_list
         self.model_execution_configuration = model_execution_config
         self.last_profiled_index = last_profiled_index
@@ -70,7 +71,7 @@ class RuntimeSnapshot:
         if self.filepath is None:
             timestamp = int(time.time())
             filename = f"{self.model_name}_{timestamp}.snapshot"
-            self.filepath = os.path.join(self.RUNTIME_SNAPSHOT_DIR, filename)
+            self.filepath = os.path.join(self.runtime_snapshot_dir, filename)
 
         self._logger.info(f"Saving runtime snapshot to {self.filepath}...")
         try:
@@ -88,7 +89,7 @@ class RuntimeSnapshot:
             raise
 
     @classmethod
-    def load_latest(cls) -> Optional["RuntimeSnapshot"]:
+    def load_latest(cls, runtime_snapshot_dir) -> Optional["RuntimeSnapshot"]:
         """
         Finds and loads the most recent snapshot from the predefined directory.
 
@@ -99,17 +100,15 @@ class RuntimeSnapshot:
             An instance of the RuntimeSnapshot class with the loaded state,
             or None if no snapshots are found.
         """
-        cls._logger.info(
-            f"Searching for latest snapshot in {cls.RUNTIME_SNAPSHOT_DIR}..."
-        )
-        if not os.path.isdir(cls.RUNTIME_SNAPSHOT_DIR):
+        cls._logger.info(f"Searching for latest snapshot in {runtime_snapshot_dir}...")
+        if not os.path.isdir(runtime_snapshot_dir):
             cls._logger.warning("Snapshot directory not found. Starting a new run.")
             return None
 
         try:
             snapshot_files = [
                 file
-                for file in os.listdir(cls.RUNTIME_SNAPSHOT_DIR)
+                for file in os.listdir(runtime_snapshot_dir)
                 if file.endswith(".snapshot")
             ]
 
@@ -120,8 +119,8 @@ class RuntimeSnapshot:
                 return None
 
             # Find the latest file based on the timestamp in the name
-            latest_file = min(snapshot_files)
-            latest_filepath = os.path.join(cls.RUNTIME_SNAPSHOT_DIR, latest_file)
+            latest_file = max(snapshot_files)
+            latest_filepath = os.path.join(runtime_snapshot_dir, latest_file)
 
             cls._logger.info(f"Loading latest snapshot: {latest_filepath}")
             with open(latest_filepath, "rb") as f:

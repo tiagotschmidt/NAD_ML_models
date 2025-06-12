@@ -5,6 +5,7 @@ import keras
 import pandas as pd
 import logging
 import datetime
+from pathlib import Path
 
 from eppnad.utils.execution_configuration import ExecutionConfiguration
 from eppnad.utils.framework_parameters import (
@@ -35,7 +36,9 @@ logging.basicConfig(
 )
 
 from .execution_engine import ExecutionEngine
-from .energy_monitor import EnergyMonitor
+from .core.energy_monitor import EnergyMonitor
+
+DOT_DIR = "./"
 
 
 def profile(
@@ -102,8 +105,15 @@ def profile(
         optimizer,
     )
 
+    profile_execution_dir = DOT_DIR + user_model_name + "/"
+    Path(profile_execution_dir).mkdir()
+
     runtime_snapshot = RuntimeSnapshot(
-        user_model_name, configurations_list, modelExecutionConfig, 0
+        user_model_name,
+        profile_execution_dir,
+        configurations_list,
+        modelExecutionConfig,
+        0,
     )
 
     engine = ExecutionEngine(
