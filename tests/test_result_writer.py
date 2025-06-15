@@ -6,7 +6,7 @@ import pytest
 from dataclasses import dataclass
 
 # Mock the real classes with simple test versions
-from eppnad.manager import ExecutionConfiguration
+from eppnad.utils.execution_configuration import ExecutionConfiguration
 from eppnad.utils.execution_result import (
     ResultsReader,
     ResultsWriter,

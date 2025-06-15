@@ -93,10 +93,11 @@ class ExecutionEngine(multiprocessing.Process):
 
         start_index = self.runtime_snapshot.last_profiled_index + 1
 
-        for index, config in enumerate(
-            self.runtime_snapshot.configuration_list[start_index:]
-        ):
-            self._execute_on_platform(index, config)
+        if start_index >= len(self.runtime_snapshot.configuration_list):
+            for index, config in enumerate(
+                self.runtime_snapshot.configuration_list[start_index:]
+            ):
+                self._execute_on_platform(index, config)
 
         self.signal_energy_pipe.send(ProcessSignal.FinalStop)
         self.logger.info("[EXECUTION-ENGINE] Sent final stop signal to logger.")
