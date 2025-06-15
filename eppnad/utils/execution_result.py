@@ -3,7 +3,7 @@ import logging
 import os
 from dataclasses import dataclass, fields, is_dataclass, asdict
 from enum import Enum
-from typing import Any
+from typing import Any, Dict, List, Union
 
 from eppnad.utils.execution_configuration import ExecutionConfiguration
 
@@ -25,7 +25,16 @@ class TimeAndEnergy:
     average_joules: float
 
 
+@dataclass
+class ConfigAndResult:
+    """Represents a single result row, linking a configuration to its outcome."""
+
+    configuration: ExecutionConfiguration
+    result: Union[StatisticalValues, TimeAndEnergy]
+
+
 Metrics = dict[str, StatisticalValues]
+WrittenResults = dict[str, List[ConfigAndResult]]
 
 
 ExecutionResult = tuple[ExecutionConfiguration, Metrics]
@@ -43,7 +52,7 @@ class ResultsWriter:
 
     _logger = logging.getLogger(__name__)
 
-    def __init__(self, output_dir: str = "./profiler_output"):
+    def __init__(self, output_dir: str = "./profiler_output/"):
         """
         Initializes the ResultsWriter.
 
@@ -126,6 +135,114 @@ class ResultsWriter:
         except IOError as e:
             self._logger.error(f"Error writing to CSV file {filepath}: {e}")
             raise
+
+    def _ensure_results_directory_exists(self):
+        """Creates the results directory if it does not already exist."""
+        try:
+            os.makedirs(self.results_dir, exist_ok=True)
+        except IOError as e:
+            self._logger.error(
+                f"Error creating results directory {self.results_dir}: {e}"
+            )
+            raise
+
+
+class ResultsReader:
+    _logger = logging.getLogger(__name__)
+
+    def __init__(self, output_dir: str = "./profiler_output/"):
+        """
+        Initializes the ResultsReader.
+
+        Args:
+            output_dir: The root directory where results will be stored.
+        """
+        # Create a dedicated results directory for the specific model
+        self.results_dir = os.path.join(output_dir, "results")
+
+    def read_results_from_directory(self) -> WrittenResults:
+        """
+        Args:
+            result: A tuple containing the ExecutionConfiguration and a
+                    dictionary of the statistical performance metrics.
+        """
+        if not os.path.isdir(self.results_dir):
+            self._logger.warning(f"Results directory not found: {self.results_dir}")
+            return {}
+
+        all_results: WrittenResults = {}
+        config_fields_map = {f.name: f for f in fields(ExecutionConfiguration)}  # type: ignore
+        stats_fields_map = {f.name: f for f in fields(StatisticalValues)}
+        energy_fields_map = {f.name: f for f in fields(TimeAndEnergy)}
+
+        try:
+            for filename in os.listdir(self.results_dir):
+                if not filename.endswith(".csv"):
+                    continue
+
+                metric_name = os.path.splitext(filename)[0]
+                filepath = os.path.join(self.results_dir, filename)
+                metric_results: List[ConfigAndResult] = []
+
+                result_fields_map, result_dataclass = (
+                    (energy_fields_map, TimeAndEnergy)
+                    if metric_name == "energy"
+                    else (stats_fields_map, StatisticalValues)
+                )
+
+                try:
+                    with open(filepath, "r", newline="") as csvfile:
+                        reader = csv.DictReader(csvfile)
+                        for row in reader:
+                            config_data = self._parse_row_part(row, config_fields_map)
+                            result_data = self._parse_row_part(row, result_fields_map)
+
+                            config_obj = ExecutionConfiguration(**config_data)
+                            result_obj = result_dataclass(**result_data)
+
+                            metric_results.append(
+                                ConfigAndResult(
+                                    configuration=config_obj, result=result_obj
+                                )
+                            )
+                except FileNotFoundError:
+                    self._logger.error(f"Could not open file: {filepath}")
+                    continue
+                except Exception as e:
+                    self._logger.error(f"Error parsing file {filepath}: {e}")
+                    continue
+
+                all_results[metric_name] = metric_results
+
+        except IOError as e:
+            self._logger.error(
+                f"Error accessing results directory {self.results_dir}: {e}"
+            )
+            raise
+
+        return all_results
+
+    def _parse_row_part(
+        self, row: dict[str, str], fields_map: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Helper to parse parts of a CSV row into a dictionary with correct types."""
+        data = {}
+        for key, field_info in fields_map.items():
+            if key in row:
+                value_str = row[key]
+                field_type = field_info.type
+                try:
+                    if issubclass(field_type, Enum):
+                        data[key] = field_type[value_str]
+                    else:
+                        data[key] = field_type(value_str)
+                except (KeyError, ValueError) as e:
+                    self._logger.error(
+                        f"Cannot parse value '{value_str}' for field '{key}': {e}"
+                    )
+                    # Assign a default or skip, depending on desired robustness
+                    data[key] = None
+        return data
 
     def _ensure_results_directory_exists(self):
         """Creates the results directory if it does not already exist."""

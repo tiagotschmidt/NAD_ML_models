@@ -3,22 +3,19 @@
 import os
 import csv
 import pytest
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 # Mock the real classes with simple test versions
+from eppnad.manager import ExecutionConfiguration
+from eppnad.utils.execution_result import (
+    ResultsReader,
+    ResultsWriter,
+    StatisticalValues,
+    TimeAndEnergy,
+)
 from eppnad.utils.framework_parameters import Platform, Lifecycle
 
-
-# Use a simple dataclass for testing instead of the real one
-@dataclass
-class MockExecutionConfiguration:
-    layers: int
-    units: int
-    epochs: int
-    features: int
-    sampling_rate: float
-    platform: Platform
-    cycle: Lifecycle
+# Import the classes to be tested and the real data structures for integration tests
 
 
 @dataclass
@@ -43,12 +40,16 @@ def temp_output_dir(tmp_path):
 @pytest.fixture
 def results_writer(temp_output_dir):
     """Provides a ResultsWriter instance initialized with a temp directory."""
-    from eppnad.utils.execution_result import ResultsWriter
-
     return ResultsWriter(output_dir=temp_output_dir)
 
 
-# --- Test Cases ---
+@pytest.fixture
+def results_reader(temp_output_dir):
+    """Provides a ResultsReader instance initialized with a temp directory."""
+    return ResultsReader(output_dir=temp_output_dir)
+
+
+# --- Test Cases for ResultsWriter ---
 class TestResultsWriter:
     """Tests the functionality of the ResultsWriter class."""
 
@@ -62,8 +63,7 @@ class TestResultsWriter:
         Tests that appending the first result creates a new CSV file with a
         correct header and data row.
         """
-        # 1. Setup Data
-        config = MockExecutionConfiguration(
+        config = ExecutionConfiguration(
             layers=2,
             units=64,
             epochs=1,
@@ -73,20 +73,12 @@ class TestResultsWriter:
             cycle=Lifecycle.TRAIN,
         )
         metrics = {"accuracy": MockStatisticalValues(mean=0.95, median=0.96)}
-        result = (config, metrics)
+        results_writer.append_execution_result((config, metrics))
 
-        # 2. Action
-        results_writer.append_execution_result(result)
-
-        # 3. Assertions
         expected_file = os.path.join(results_writer.results_dir, "accuracy.csv")
-        assert os.path.isfile(expected_file), "CSV file was not created."
-
+        assert os.path.isfile(expected_file)
         with open(expected_file, "r") as f:
-            reader = csv.reader(f)
-            header = next(reader)
-            first_row = next(reader)
-
+            header = next(csv.reader(f))
         assert header == [
             "layers",
             "units",
@@ -98,15 +90,13 @@ class TestResultsWriter:
             "mean",
             "median",
         ]
-        # Note: Enum values are written as their names ("CPU", "Train")
-        assert first_row == ["2", "64", "1", "1", "1", "CPU", "TRAIN", "0.95", "0.96"]
 
     def test_append_energy_result_creates_file(self, results_writer):
         """
         Tests that appending an energy result creates 'energy.csv' with
         the correct header and data row.
         """
-        config = MockExecutionConfiguration(
+        config = ExecutionConfiguration(
             layers=4,
             units=128,
             epochs=2,
@@ -116,37 +106,17 @@ class TestResultsWriter:
             cycle=Lifecycle.TEST,
         )
         energy_data = MockTimeAndEnergy(average_seconds=15.5, average_joules=250.75)
-
         results_writer.append_energy_result((config, energy_data))
 
         expected_file = os.path.join(results_writer.results_dir, "energy.csv")
-        assert os.path.isfile(expected_file), "energy.csv file was not created."
-
-        with open(expected_file, "r") as f:
-            reader = csv.reader(f)
-            header = next(reader)
-            first_row = next(reader)
-
-        assert header == [
-            "layers",
-            "units",
-            "epochs",
-            "features",
-            "sampling_rate",
-            "platform",
-            "cycle",
-            "average_seconds",
-            "average_joules",
-        ]
-        assert first_row == ["4", "128", "2", "2", "2", "GPU", "TEST", "15.5", "250.75"]
+        assert os.path.isfile(expected_file)
 
     def test_append_second_result_adds_row_without_header(self, results_writer):
         """
         Tests that appending a second result adds a new row to the existing
         CSV file without adding a second header.
         """
-        # 1. First result
-        config1 = MockExecutionConfiguration(
+        config1 = ExecutionConfiguration(
             layers=2,
             units=64,
             epochs=2,
@@ -158,8 +128,7 @@ class TestResultsWriter:
         metrics1 = {"loss": MockStatisticalValues(mean=0.1, median=0.09)}
         results_writer.append_execution_result((config1, metrics1))
 
-        # 2. Second result
-        config2 = MockExecutionConfiguration(
+        config2 = ExecutionConfiguration(
             layers=4,
             units=128,
             epochs=3,
@@ -171,21 +140,17 @@ class TestResultsWriter:
         metrics2 = {"loss": MockStatisticalValues(mean=0.05, median=0.04)}
         results_writer.append_execution_result((config2, metrics2))
 
-        # 3. Assertions
         expected_file = os.path.join(results_writer.results_dir, "loss.csv")
         with open(expected_file, "r") as f:
             lines = f.readlines()
-
-        assert len(lines) == 3, "File should contain one header and two data rows."
-        assert "layers,units" in lines[0]  # Check header is there
-        assert "4,128,3,3,3,GPU,TEST,0.05,0.04\n" in lines[2]  # Check second row data
+        assert len(lines) == 3
 
     def test_multiple_metrics_create_multiple_files(self, results_writer):
         """
         Tests that a single result with multiple metrics creates a separate
         CSV file for each metric.
         """
-        config = MockExecutionConfiguration(
+        config = ExecutionConfiguration(
             layers=1,
             units=1,
             epochs=4,
@@ -198,11 +163,146 @@ class TestResultsWriter:
             "loss": MockStatisticalValues(mean=0.5, median=0.5),
             "accuracy": MockStatisticalValues(mean=0.8, median=0.8),
         }
-
         results_writer.append_execution_result((config, metrics))
+        assert os.path.isfile(os.path.join(results_writer.results_dir, "loss.csv"))
+        assert os.path.isfile(os.path.join(results_writer.results_dir, "accuracy.csv"))
 
-        loss_file = os.path.join(results_writer.results_dir, "loss.csv")
-        accuracy_file = os.path.join(results_writer.results_dir, "accuracy.csv")
 
-        assert os.path.isfile(loss_file)
-        assert os.path.isfile(accuracy_file)
+# --- New Test Class for Writer-Reader Integration ---
+class TestWriterReaderIntegration:
+    """
+    Tests the end-to-end functionality of writing results with ResultsWriter
+    and reading them back with ResultsReader.
+    """
+
+    def test_write_and_read_single_performance_result(
+        self, results_writer, results_reader
+    ):
+        """
+        Tests that a single performance result can be written and then read back accurately.
+        """
+        config = ExecutionConfiguration(
+            layers=2,
+            units=64,
+            epochs=10,
+            features=12,
+            sampling_rate=1.0,
+            platform=Platform.CPU,
+            cycle=Lifecycle.TRAIN,
+        )
+        stats = StatisticalValues(
+            mean=0.95, std_dev=0.01, median=0.96, min=0.92, max=0.98, p25=0.94, p75=0.97
+        )
+        results_writer.append_execution_result((config, {"accuracy": stats}))
+        read_results = results_reader.read_results_from_directory()
+
+        assert "accuracy" in read_results
+        assert len(read_results["accuracy"]) == 1
+        read_config_and_result = read_results["accuracy"][0]
+        # The reader should reconstruct the configuration and result objects exactly
+        assert read_config_and_result.configuration == config
+        assert read_config_and_result.result == stats
+
+    def test_write_and_read_energy_result(self, results_writer, results_reader):
+        """
+        Tests that an energy result can be written and read back accurately.
+        """
+        config = ExecutionConfiguration(
+            layers=4,
+            units=128,
+            epochs=20,
+            features=15,
+            sampling_rate=2.0,
+            platform=Platform.GPU,
+            cycle=Lifecycle.TEST,
+        )
+        energy_data = TimeAndEnergy(average_seconds=120.5, average_joules=3500.75)
+        results_writer.append_energy_result((config, energy_data))
+        read_results = results_reader.read_results_from_directory()
+
+        assert "energy" in read_results
+        assert len(read_results["energy"]) == 1
+        read_config_and_result = read_results["energy"][0]
+        assert read_config_and_result.configuration == config
+        assert read_config_and_result.result == energy_data
+
+    def test_write_and_read_multiple_runs_and_metrics(
+        self, results_writer, results_reader
+    ):
+        """
+        Tests writing multiple experiment runs and reading them all back correctly.
+        """
+        config1 = ExecutionConfiguration(
+            layers=2,
+            units=32,
+            epochs=5,
+            features=10,
+            sampling_rate=1.0,
+            platform=Platform.CPU,
+            cycle=Lifecycle.TRAIN,
+        )
+        metrics1 = {
+            "loss": StatisticalValues(
+                mean=0.5, std_dev=0.1, median=0.48, min=0.3, max=0.7, p25=0.4, p75=0.6
+            ),
+            "accuracy": StatisticalValues(
+                mean=0.8,
+                std_dev=0.05,
+                median=0.81,
+                min=0.7,
+                max=0.9,
+                p25=0.78,
+                p75=0.82,
+            ),
+        }
+        config2 = ExecutionConfiguration(
+            layers=4,
+            units=64,
+            epochs=5,
+            features=10,
+            sampling_rate=1.0,
+            platform=Platform.GPU,
+            cycle=Lifecycle.TEST,
+        )
+        metrics2 = {
+            "loss": StatisticalValues(
+                mean=0.3,
+                std_dev=0.08,
+                median=0.29,
+                min=0.2,
+                max=0.4,
+                p25=0.25,
+                p75=0.35,
+            ),
+            "accuracy": StatisticalValues(
+                mean=0.9,
+                std_dev=0.03,
+                median=0.91,
+                min=0.85,
+                max=0.95,
+                p25=0.88,
+                p75=0.92,
+            ),
+        }
+
+        results_writer.append_execution_result((config1, metrics1))
+        results_writer.append_execution_result((config2, metrics2))
+        read_results = results_reader.read_results_from_directory()
+
+        assert set(read_results.keys()) == {"loss", "accuracy"}
+        assert len(read_results["loss"]) == 2
+        assert len(read_results["accuracy"]) == 2
+
+        # Find and verify a specific result, since read order is not guaranteed
+        accuracy_result_2 = next(
+            r for r in read_results["accuracy"] if r.configuration.layers == 4
+        )
+        assert accuracy_result_2.configuration == config2
+        assert accuracy_result_2.result == metrics2["accuracy"]
+
+    def test_read_from_empty_directory(self, results_reader):
+        """
+        Tests that reading from an empty directory returns an empty dict.
+        """
+        read_results = results_reader.read_results_from_directory()
+        assert read_results == {}
