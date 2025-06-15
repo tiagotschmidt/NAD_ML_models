@@ -26,14 +26,14 @@ Refactor the existing, scattered scripts into a modular and cohesive framework. 
 
 ### 2.1. Refactor the Core Execution Engine
 - [x] **Goal:** Make the `ExecutionEngine` a better generic orchestrator that runs experiments using the (keras) standardized model interface.
-- [ ] **Action:**
+- [x] **Action:**
     - [x] Move `execution_engine.py` to `src/eppnad/core/`.
     - [x] Update execution logic to enable intermitent execution.
     - [x] Update result saving logic to provide more insightfull data.
     - [x] Update profile saving logic to use long term storage periodically (csv?). 
     - [x] Create a runtime checkpoint logic.
-    - [ ] Create multiple profiles functions (full, intermitent).
-    - [ ] Add unit tests for all functions.
+    - [x] Create multiple profiles functions (full, intermitent).
+    - [x] Add unit tests for all functions.
     
 ### 2.2. Refactor the Logger(EnergyMonitor)
 - [x] **Goal:** Make the `EnergyMonitor` a better energy watchdog process.
@@ -42,11 +42,11 @@ Refactor the existing, scattered scripts into a modular and cohesive framework. 
     - [x] Add unit tests for all functions.
     
 ### 2.3. Refactor the Manager
-- [ ] **Goal:** Make the `Manager` a better entrypoint process for the framework..
-- [ ] **Action:**
-    - [ ] Move `manager.py` to `src/eppnad/core/`.    
-    - [ ] Add unit tests for all functions.
-    - [ ] Adapt the manager for the different profile styles (and new data structures).
+- [x] **Goal:** Make the `Manager` a better entrypoint process for the framework..
+- [x] **Action:**
+    - [x] Move `manager.py` to `src/eppnad/core/`.    
+    - [x] Add unit tests for all functions.
+    - [x] Adapt the manager for the different profile styles (and new data structures).
     
 ### 2.4. Refactor the Plotter
 - [x] **Goal:** Write a better plotting engine. 
@@ -65,9 +65,9 @@ Build confidence in the framework's reliability through a structured, incrementa
 - [x] Create a `pytest.ini` or configure `pyproject.toml` to automatically discover tests in the `tests/` directory.
 
 ### 3.2. Implement Unit Tests Incrementally
-- [ ] **Target:** Core framework components.
+- [x] **Target:** Core framework components.
     - [x] Write unit tests for the `EnergyMonitor` to verify message formatting and output.
-    - [ ] Write unit tests for the `Manager` to ensure it correctly parses configurations.
+    - [x] Write unit tests for the `Manager` to ensure it correctly parses configurations.
     - [x] Write unit tests for the `ExecutionEngine` using a "mock" model object to test the execution flow without training a real model.
 
 ### 3.3. Measure and Improve Test Coverage

@@ -1,8 +1,6 @@
 # EPPNAD: Energy and Performance Profiler for Network Anomaly Detection
 
-[![Continuous Integration]](https://github.com/tiagotschmidt/NAD_ML_models/blob/main/.github/workflows/ci.yml)
-
-EPPNAD is a Python framework for studying the energy and performance trade-offs of Deep Learning models applied to network anomaly detection. It provides a profiling mechanism to systematically measure and analyze how different model architectures and hyperparameter configurations impact performance metrics (like accuracy, precision, recall) and energy consumption. This allows researchers and practitioners to make informed decisions when designing and deploying deep learning-based intrusion detection systems.
+**EPPNAD** is a Python framework for studying the energy and performance trade-offs of Deep Learning models applied to network anomaly detection. It provides a profiling mechanism to systematically measure and analyze how different model architectures and hyperparameter configurations impact performance metrics (like accuracy, precision, recall) and energy consumption. This allows researchers and practitioners to make informed decisions when designing and deploying deep learning-based intrusion detection systems.
 
 # 🚀 Installation
 
@@ -24,7 +22,7 @@ Bash
 ### 1. Clone the repository
 ```bash
 git clone https://github.com/tiagotschmidt/NAD_ML_models.git
-cd <NAD_ML_models>
+cd NAD_ML_models
 ```
 
 ### 2. Create and activate the Conda environment
