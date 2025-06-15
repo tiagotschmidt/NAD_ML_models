@@ -1,0 +1,41 @@
+# This is a GitHub Actions workflow file that defines your CI process.
+# It automates the testing of your code on every push and pull request.
+
+name: Continuous Integration
+
+# 1. TRIGGERS: This section defines when the workflow will run.
+# It's configured to run on pushes and pull requests to the 'main' branch.
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+# 2. JOBS: A workflow run is made up of one or more jobs.
+jobs:
+  # The "build-and-test" job runs all our checks.
+  build-and-test:
+    # It runs on the latest version of Ubuntu provided by GitHub.
+    runs-on: ubuntu-latest
+
+    # 3. STEPS: A job contains a sequence of tasks called steps.
+    steps:
+      # Step 1: Checks out your repository's code so the job can access it.
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      # Step 2: Sets up a Conda environment using your environment.yml file.
+      - name: Set up Conda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          python-version: "3.10"            # Matches the version in your environment file
+          environment-file: environment.yml # Specifies the environment definition file
+          activate-environment: eppnad      # The name of the Conda environment to activate
+
+      # Step 3: Runs the test suite using pytest.
+      # The "shell: bash -l {0}" ensures that the step runs in a login shell,
+      # which correctly sources the Conda environment and makes pytest available.
+      - name: Run tests with pytest
+        shell: bash -l {0}
+        run: pytest

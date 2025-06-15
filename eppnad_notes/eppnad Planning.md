@@ -61,8 +61,8 @@ Refactor the existing, scattered scripts into a modular and cohesive framework. 
 Build confidence in the framework's reliability through a structured, incremental testing strategy and automated checks.
 
 ### 3.1. Set Up the Testing Infrastructure
-- [ ] Add `pytest` and `pytest-cov` to the development environment file.
-- [ ] Create a `pytest.ini` or configure `pyproject.toml` to automatically discover tests in the `tests/` directory.
+- [x] Add `pytest` and `pytest-cov` to the development environment file.
+- [x] Create a `pytest.ini` or configure `pyproject.toml` to automatically discover tests in the `tests/` directory.
 
 ### 3.2. Implement Unit Tests Incrementally
 - [ ] **Target:** Core framework components.
@@ -71,22 +71,22 @@ Build confidence in the framework's reliability through a structured, incrementa
     - [x] Write unit tests for the `ExecutionEngine` using a "mock" model object to test the execution flow without training a real model.
 
 ### 3.3. Measure and Improve Test Coverage
-- [ ] **Goal:** Use test coverage as a guide to identify untested parts of the codebase.
-- [ ] **Action:**
-    - [ ] Configure `pytest-cov` to generate a coverage report in the terminal after running tests. Add the following to your `pytest.ini`:
+- [x] **Goal:** Use test coverage as a guide to identify untested parts of the codebase.
+- [x] **Action:**
+    - [x] Configure `pytest-cov` to generate a coverage report in the terminal after running tests. Add the following to your `pytest.ini`:
      ``ini
       [pytest]
       addopts = --cov=src/nad_framework --cov-report=term-missing
       ```
-    - [ ] Set an initial, achievable coverage target (e.g., 60%).
-    - [ ] Write new tests specifically for the files/lines that the coverage report shows are being missed.
+    - [x] Set an initial, achievable coverage target (e.g., 60%).
+    - [x] Write new tests specifically for the files/lines that the coverage report shows are being missed.
 
 ### 3.4. Set Up Continuous Integration (CI)
-- [ ] Create a GitHub Actions workflow (`.github/workflows/ci.yml`).
-- [ ] Configure the CI to:
-    - [ ] Check out the code.
-    - [ ] Install the Conda environment from `environment.yml`.
-    - [ ] Run the full `pytest` suite with coverage reporting on every push and pull request.
+- [x] Create a GitHub Actions workflow (`.github/workflows/ci.yml`).
+- [x] Configure the CI to:
+    - [x] Check out the code.
+    - [x] Install the Conda environment from `environment.yml`.
+    - [x] Run the full `pytest` suite with coverage reporting on every push and pull request.
 
 ---
 
