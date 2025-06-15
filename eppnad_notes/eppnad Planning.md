@@ -25,20 +25,20 @@ The first step is to clean up the repository, establish a professional structure
 Refactor the existing, scattered scripts into a modular and cohesive framework. The goal is to decouple data processing, model definition, and experiment execution.
 
 ### 2.1. Refactor the Core Execution Engine
-- [ ] **Goal:** Make the `ExecutionEngine` a better generic orchestrator that runs experiments using the (keras) standardized model interface.
+- [x] **Goal:** Make the `ExecutionEngine` a better generic orchestrator that runs experiments using the (keras) standardized model interface.
 - [ ] **Action:**
-    - [ ] Move `execution_engine.py` to `src/eppnad/core/`.
-    - [ ] Update execution logic to enable intermitent execution.
-    - [ ] Update result saving logic to provide more insightfull data.
-    - [ ] Update profile saving logic to use long term storage periodically (csv?). 
+    - [x] Move `execution_engine.py` to `src/eppnad/core/`.
+    - [x] Update execution logic to enable intermitent execution.
+    - [x] Update result saving logic to provide more insightfull data.
+    - [x] Update profile saving logic to use long term storage periodically (csv?). 
     - [x] Create a runtime checkpoint logic.
     - [ ] Create multiple profiles functions (full, intermitent).
     - [ ] Add unit tests for all functions.
     
 ### 2.2. Refactor the Logger(EnergyMonitor)
-- [ ] **Goal:** Make the `EnergyMonitor` a better energy watchdog process.
-- [ ] **Action:**
-    - [ ] Move `logger.py` to `src/eppnad/core/`.    
+- [x] **Goal:** Make the `EnergyMonitor` a better energy watchdog process.
+- [x] **Action:**
+    - [x] Move `logger.py` to `src/eppnad/core/`.    
     - [x] Add unit tests for all functions.
     
 ### 2.3. Refactor the Manager
@@ -49,10 +49,10 @@ Refactor the existing, scattered scripts into a modular and cohesive framework. 
     - [ ] Adapt the manager for the different profile styles (and new data structures).
     
 ### 2.4. Refactor the Plotter
-- [ ] **Goal:** Write a better plotting engine. 
-- [ ] **Action:**
-    - [ ] Move `plotter.py` to `src/eppnad/core/`.    
-    - [ ] Adapt the plotter to new intermediate way of storing profile data (csv?)
+- [x] **Goal:** Write a better plotting engine. 
+- [x] **Action:**
+    - [x] Move `plotter.py` to `src/eppnad/core/`.    
+    - [x] Adapt the plotter to new intermediate way of storing profile data (csv?)
 
 ---
 
@@ -67,8 +67,8 @@ Build confidence in the framework's reliability through a structured, incrementa
 ### 3.2. Implement Unit Tests Incrementally
 - [ ] **Target:** Core framework components.
     - [x] Write unit tests for the `EnergyMonitor` to verify message formatting and output.
-    - [x] Write unit tests for the `Manager` to ensure it correctly parses configurations.
-    - [ ] Write unit tests for the `ExecutionEngine` using a "mock" model object to test the execution flow without training a real model.
+    - [ ] Write unit tests for the `Manager` to ensure it correctly parses configurations.
+    - [x] Write unit tests for the `ExecutionEngine` using a "mock" model object to test the execution flow without training a real model.
 
 ### 3.3. Measure and Improve Test Coverage
 - [ ] **Goal:** Use test coverage as a guide to identify untested parts of the codebase.
