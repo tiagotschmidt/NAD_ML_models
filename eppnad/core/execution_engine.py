@@ -56,6 +56,7 @@ class ExecutionEngine(multiprocessing.Process):
         start_pipe: Connection,
         log_signal_pipe: Connection,
         energy_monitor_pipe: Connection,
+        execution_timeout_seconds: int | None = None,
     ):
         """
         Initializes the ExecutionEngine process.
@@ -67,6 +68,7 @@ class ExecutionEngine(multiprocessing.Process):
             results_pipe: Pipe for sending the final aggregated results back.
             log_signal_pipe: Pipe for sending start/stop signals to the energy logger.
             log_result_pipe: Pipe for receiving energy measurements from the logger.
+            execution_timeout_seconds: Optional timer in seconds to limit total execution time.
         """
         super().__init__()
         self.user_model_function = user_model_function
@@ -77,40 +79,62 @@ class ExecutionEngine(multiprocessing.Process):
         self.energy_monitor_pipe = energy_monitor_pipe
         self.results_writer = ResultsWriter(profile_execution_directory)
         self.model_directory = profile_execution_directory + "models/"
+        self.execution_timeout_seconds = execution_timeout_seconds
+        self.execution_start_time = 0.0
 
     def run(self):
         """
         The main entry point for the process.
 
         Waits for a start signal, then iterates through all configurations,
-        executing them on the appropriate hardware platform. Finally, it sends
+        executing them on the appropriate hardware platform. If a timeout is
+        set, it will stop execution when the time is up. Finally, it sends
         the collected results back to the main process.
         """
         self.start_pipe.recv()  # Wait for the start signal from the manager
         self.logger.info(
             "[EXECUTION-ENGINE] Start signal received. Beginning profiling."
         )
+        self.execution_start_time = time()
 
         start_index = self.runtime_snapshot.last_profiled_index + 1
 
-        if start_index >= len(self.runtime_snapshot.configuration_list):
-            for index, config in enumerate(
-                self.runtime_snapshot.configuration_list[start_index:]
-            ):
-                self._execute_on_platform(index, config)
+        for index in range(start_index, len(self.runtime_snapshot.configuration_list)):
+            config = self.runtime_snapshot.configuration_list[index]
+            if not self._execute_on_platform(index, config):
+                self.logger.info(
+                    f"[EXECUTION-ENGINE] Execution timeout of {self.execution_timeout_seconds}s reached. "
+                    "Stopping profiling. State has been saved to resume later."
+                )
+                # Exit the loop early
+                break
 
         self.signal_energy_pipe.send(ProcessSignal.FinalStop)
         self.logger.info("[EXECUTION-ENGINE] Sent final stop signal to logger.")
 
     # region Platform Execution
-    def _execute_on_platform(self, index: int, config: ExecutionConfiguration):
-        """Routes the execution to the correct TensorFlow device context."""
+    def _execute_on_platform(self, index: int, config: ExecutionConfiguration) -> bool:
+        """
+        Routes the execution to the correct TensorFlow device context.
+        Returns True to continue, or False if the execution timeout is reached.
+        """
         device = "/gpu:0" if config.platform == Platform.GPU else "/cpu:0"
         self.logger.info(
             f"[EXECUTION-ENGINE] Executing on {device} for config: {config}"
         )
         with tf.device(device):
             self._run_single_configuration(config, index)
+
+        # Check if the execution timer has been reached
+        if (
+            self.execution_timeout_seconds is not None
+            and self.execution_timeout_seconds > 0
+        ):
+            elapsed_time = time() - self.execution_start_time
+            if elapsed_time >= self.execution_timeout_seconds:
+                return False  # Signal to stop
+
+        return True  # Signal to continue
 
     def _run_single_configuration(self, config: ExecutionConfiguration, index: int):
         """
