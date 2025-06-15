@@ -104,16 +104,14 @@ Focus on the research extension and prepare the project for public use by creati
     - [ ] Results should be saved in a structured format (JSON is a good choice) for easy analysis later.
 
 ### 4.2. Write a Comprehensive `README.md`
-- [ ] **Goal:** Make the `README.md` the definitive guide for a new user.
-- [ ] **Structure:**
-    - [ ] **Project Title & CI Badge:** Add the title and the auto-updating CI badge from your GitHub Action.
-    - [ ] **Project Description:** A clear, one-paragraph summary of what the project does and the problem it solves.
-    - [ ] **Installation:** Provide two clear, copy-pasteable blocks of code for installing the framework:
+- [x] **Goal:** Make the `README.md` the definitive guide for a new user.
+- [x] **Structure:**
+    - [x] **Project Title & CI Badge:** Add the title and the auto-updating CI badge from your GitHub Action.
+    - [x] **Project Description:** A clear, one-paragraph summary of what the project does and the problem it solves.
+    - [x] **Installation:** Provide two clear, copy-pasteable blocks of code for installing the framework:
         1. For users: `pip install nad-framework` (once it's on PyPI).
         2. For developers: `conda env create -f environment.yml` followed by `pip install -e .`.
-    - [ ] **Quick Start:** A minimal, working example showing how to use the `run_experiment.py` client.
-    - [ ] **How to Cite:** A BibTeX entry for your paper so other researchers can cite your work correctly.
-
+    - [x] **Quick Start:** A minimal, working example showing how to use the `run_experiment.py` client.
 ---
 
 ## 🏆 Phase 5: Finalization
