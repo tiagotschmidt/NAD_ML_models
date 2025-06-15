@@ -1,0 +1,276 @@
+import datetime
+import os
+from dataclasses import dataclass, fields, replace
+from enum import Enum
+from typing import Any, Dict, List, Tuple
+
+import matplotlib.pyplot as plt
+
+from eppnad.utils.execution_configuration import ExecutionConfiguration
+from eppnad.utils.execution_result import (
+    ResultsReader,
+    StatisticalValues,
+    TimeAndEnergy,
+    WrittenResults,
+)
+from eppnad.utils.plot_list_collection import PlotCollection, PlotPoint
+
+
+def plot(
+    profile_execution_directory: str,
+    number_of_samples: int,
+) -> Dict[str, Dict[str, PlotCollection]]:
+    """
+    Reads experiment results, processes them into plottable collections,
+    and generates and saves plots.
+
+    This is the main entry point for the plotting functionality.
+
+    Args:
+        profile_execution_directory: The root directory where results are stored.
+        number_of_samples: The number of samples used in the experiments,
+                           for annotation on the plots.
+
+    Returns:
+        The fully processed, nested dictionary of results grouped for plotting.
+    """
+    read_results = ResultsReader(
+        profile_execution_directory
+    ).read_results_from_directory()
+
+    collections_for_plotting = _group_results_for_plotting(read_results)
+
+    _prepare_and_save_plots(
+        collections_for_plotting, profile_execution_directory, number_of_samples
+    )
+    return collections_for_plotting
+
+
+def _group_results_for_plotting(
+    results_by_metric: WrittenResults,
+) -> Dict[str, Dict[str, PlotCollection]]:
+    """
+    Organizes raw experiment results into collections ready for plotting.
+
+    This function processes a dictionary of experiment results and groups them
+    to isolate the impact of a single, varying hyperparameter. It works for
+    any metric, including performance (StatisticalValues) and energy
+    (TimeAndEnergy).
+
+    Args:
+        results_by_metric: A dictionary mapping each metric's name to a list
+                           of its results, as read from the CSV files.
+
+    Returns:
+        A nested dictionary structured for easy plotting, keyed by metric name,
+        then by the name of the varying hyperparameter.
+    """
+    metric_collections: Dict[str, Dict[str, PlotCollection]] = {}
+    hyperparameter_names = [f.name for f in fields(ExecutionConfiguration)]
+
+    for metric_name, results_for_metric in results_by_metric.items():
+        hyperparameter_collections: Dict[str, PlotCollection] = {
+            name: {} for name in hyperparameter_names
+        }
+
+        for config_and_result in results_for_metric:
+            original_config = config_and_result.configuration
+            result_object = config_and_result.result
+
+            for varying_hp_name in hyperparameter_names:
+                field = ExecutionConfiguration.__dataclass_fields__[varying_hp_name]
+                placeholder: Any
+                if isinstance(field.type, type) and issubclass(field.type, Enum):
+                    placeholder = list(field.type)[0]
+                else:
+                    placeholder = 0
+
+                template_config = replace(
+                    original_config, **{varying_hp_name: placeholder}
+                )
+                x_value = getattr(original_config, varying_hp_name)
+                plot_point = PlotPoint(x_value=x_value, y_values=result_object)
+
+                group = hyperparameter_collections[varying_hp_name].setdefault(
+                    template_config, []
+                )
+                group.append(plot_point)
+
+        metric_collections[metric_name] = hyperparameter_collections
+
+    return metric_collections
+
+
+def _generate_plot_metadata(
+    template_config: ExecutionConfiguration,
+    varying_hyperparameter: str,
+    number_of_samples: int,
+) -> Tuple[str, str]:
+    """
+    Dynamically generates a filename and a textbox string for a plot based on
+    the fixed hyperparameters of an experiment.
+
+    Args:
+        template_config: The template configuration for the plot group.
+        varying_hyperparameter: The name of the hyperparameter being varied.
+        number_of_samples: The number of samples used in the experiment.
+
+    Returns:
+        A tuple containing the generated filename suffix and the textbox string.
+    """
+    filename_parts = []
+    textbox_parts = [f"Samples: {number_of_samples}"]
+
+    for field_name, field_value in template_config.__dict__.items():
+        if field_name != varying_hyperparameter:
+            value_str = (
+                field_value.name if isinstance(field_value, Enum) else field_value
+            )
+            filename_parts.append(f"{field_name}_{value_str}")
+            textbox_parts.append(f"{field_name.capitalize()}: {value_str}")
+
+    filename = "_".join(filename_parts) + ".pdf"
+    textbox_str = "\n".join(textbox_parts)
+
+    return filename, textbox_str
+
+
+def _prepare_and_save_plots(
+    all_collections: Dict[str, Dict[str, PlotCollection]],
+    output_directory: str,
+    number_of_samples: int,
+):
+    """
+    Iterates through processed collections to prepare data and save plots.
+    """
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    plots_root_dir = os.path.join(output_directory, f"plots_{timestamp}")
+    os.makedirs(plots_root_dir, exist_ok=True)
+
+    energy_collections = all_collections.get("energy", {})
+
+    for metric_name, collections_by_hp in all_collections.items():
+        if metric_name == "energy":
+            continue
+
+        for varying_hp_name, groups_by_template in collections_by_hp.items():
+            for template_config, plot_points in groups_by_template.items():
+                if len(plot_points) > 1:
+                    plot_points.sort(key=lambda p: p.x_value)
+
+                    x_values = [p.x_value for p in plot_points]
+
+                    boxplot_stats = [
+                        {
+                            "med": p.y_values.median,
+                            "q1": p.y_values.p25,
+                            "q3": p.y_values.p75,
+                            "whislo": p.y_values.min,
+                            "whishi": p.y_values.max,
+                        }
+                        for p in plot_points
+                        if isinstance(p.y_values, StatisticalValues)
+                    ]
+
+                    aligned_energy_joules = []
+                    aligned_energy_x_values = []
+                    if energy_collections:
+                        corresponding_energy_points = energy_collections.get(
+                            varying_hp_name, {}
+                        ).get(template_config, [])
+                        energy_lookup = {
+                            p.x_value: p.y_values for p in corresponding_energy_points
+                        }
+
+                        for x in x_values:
+                            energy_result = energy_lookup.get(x)
+                            if energy_result and isinstance(
+                                energy_result, TimeAndEnergy
+                            ):
+                                aligned_energy_joules.append(
+                                    energy_result.average_joules
+                                )
+                                aligned_energy_x_values.append(x)
+
+                    chart_filename, textbox_str = _generate_plot_metadata(
+                        template_config, varying_hp_name, number_of_samples
+                    )
+
+                    save_dir = os.path.join(
+                        plots_root_dir, metric_name, varying_hp_name
+                    )
+                    os.makedirs(save_dir, exist_ok=True)
+                    save_path = os.path.join(save_dir, chart_filename)
+
+                    _create_box_and_line_chart(
+                        save_path=save_path,
+                        x_values=x_values,
+                        boxplot_stats=boxplot_stats,
+                        energy_x_values=aligned_energy_x_values,
+                        energy_y_values=aligned_energy_joules,
+                        metric_name=metric_name,
+                        varying_hp_name=varying_hp_name,
+                        textbox_str=textbox_str,
+                    )
+
+
+def _create_box_and_line_chart(
+    save_path: str,
+    x_values: List[Any],
+    boxplot_stats: List[Dict],
+    energy_x_values: List[Any],
+    energy_y_values: List[float],
+    metric_name: str,
+    varying_hp_name: str,
+    textbox_str: str,
+):
+    """
+    Generates and saves a single chart with a primary box plot and a
+    secondary line plot.
+
+    Args:
+        save_path: The full path where the plot image will be saved.
+        x_values: The labels for the x-axis.
+        boxplot_stats: A list of statistics for each box plot.
+        energy_x_values: The x-values for the energy data points.
+        energy_y_values: The y-values (in Joules) for the energy line plot.
+        metric_name: The name of the primary performance metric.
+        varying_hp_name: The name of the varying hyperparameter.
+        textbox_str: The formatted string with metadata for the text box.
+    """
+    fig, ax1 = plt.subplots(figsize=(12, 8))
+
+    # Primary Y-Axis (Box Plot)
+    ax1.set_xlabel(varying_hp_name.replace("_", " ").capitalize())
+    ax1.set_ylabel(metric_name.replace("_", " ").capitalize())
+    ax1.bxp(boxplot_stats, positions=x_values, showfliers=False, patch_artist=True)
+    ax1.tick_params(axis="x", rotation=30)
+
+    # Secondary Y-Axis (Line Plot for Energy)
+    if energy_y_values:
+        ax2 = ax1.twinx()
+        ax2.plot(
+            energy_x_values, energy_y_values, "o-", color="tab:red", label="Energy"
+        )
+        ax2.set_ylabel("Average Energy (Joules)", color="tab:red")
+        ax2.tick_params(axis="y", labelcolor="tab:red")
+        ax2.legend(loc="upper right")
+
+    # Final Touches
+    title = f"{metric_name.capitalize()} vs. {varying_hp_name.capitalize()}"
+    plt.title(title)
+    ax1.grid(True, linestyle="--", axis="y")
+    props = dict(boxstyle="round", facecolor="wheat", alpha=0.5)
+    ax1.text(
+        0.02,
+        0.98,
+        textbox_str,
+        transform=ax1.transAxes,
+        fontsize=10,
+        verticalalignment="top",
+        bbox=props,
+    )
+
+    plt.tight_layout()
+    plt.savefig(save_path)
+    plt.close(fig)
