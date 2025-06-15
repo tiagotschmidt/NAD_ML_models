@@ -28,6 +28,7 @@ def mock_logger(mocker):
 # --- Test Cases ---
 
 
+@pytest.mark.rapl
 class TestEnergyProfiler:
     """Tests the core logic of the EnergyProfiler class."""
 

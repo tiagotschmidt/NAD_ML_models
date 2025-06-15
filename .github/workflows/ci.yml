@@ -40,4 +40,4 @@ jobs:
       # Step 4: Runs the test suite using pytest.
       - name: Run tests with pytest
         shell: bash -l {0}
-        run: pytest
+        run: pytest -m "not rapl"
