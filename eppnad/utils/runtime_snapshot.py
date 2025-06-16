@@ -23,9 +23,6 @@ class RuntimeSnapshot:
     profiling session to be paused and resumed later.
     """
 
-    # --- Class-level constants ---
-    _logger = logging.getLogger(__name__)
-
     def __init__(
         self,
         model_name: str,
@@ -73,7 +70,7 @@ class RuntimeSnapshot:
             filename = f"{self.model_name}_{timestamp}.snapshot"
             self.filepath = os.path.join(self.runtime_snapshot_dir, filename)
 
-        self._logger.info(f"Saving runtime snapshot to {self.filepath}...")
+        # self._logger.info(f"Saving runtime snapshot to {self.filepath}...")
         try:
             # Ensure the directory exists
             directory = os.path.dirname(self.filepath)
@@ -82,10 +79,10 @@ class RuntimeSnapshot:
 
             with open(self.filepath, "wb") as filepath:
                 pickle.dump(self, filepath)
-            self._logger.info("Snapshot saved successfully.")
+            # self._logger.info("Snapshot saved successfully.")
             return self.filepath
         except IOError as e:
-            self._logger.error(f"Error saving snapshot to {self.filepath}: {e}")
+            # self._logger.error(f"Error saving snapshot to {self.filepath}: {e}")
             raise
 
     @classmethod
@@ -100,9 +97,9 @@ class RuntimeSnapshot:
             An instance of the RuntimeSnapshot class with the loaded state,
             or None if no snapshots are found.
         """
-        cls._logger.info(f"Searching for latest snapshot in {runtime_snapshot_dir}...")
+        # cls._logger.info(f"Searching for latest snapshot in {runtime_snapshot_dir}...")
         if not os.path.isdir(runtime_snapshot_dir):
-            cls._logger.warning("Snapshot directory not found. Starting a new run.")
+            # cls._logger.warning("Snapshot directory not found. Starting a new run.")
             return None
 
         try:
@@ -113,16 +110,16 @@ class RuntimeSnapshot:
             ]
 
             if not snapshot_files:
-                cls._logger.warning(
-                    "No snapshot files found in directory. Starting a new run."
-                )
+                # cls._logger.warning(
+                #     "No snapshot files found in directory. Starting a new run."
+                # )
                 return None
 
             # Find the latest file based on the timestamp in the name
             latest_file = max(snapshot_files)
             latest_filepath = os.path.join(runtime_snapshot_dir, latest_file)
 
-            cls._logger.info(f"Loading latest snapshot: {latest_filepath}")
+            # cls._logger.info(f"Loading latest snapshot: {latest_filepath}")
             with open(latest_filepath, "rb") as f:
                 snapshot = pickle.load(f)
 
@@ -133,11 +130,11 @@ class RuntimeSnapshot:
 
             # Assign the filepath to the loaded object
             snapshot.filepath = latest_filepath
-            cls._logger.info("Snapshot loaded successfully.")
+            # cls._logger.info("Snapshot loaded successfully.")
             return snapshot
 
         except (IOError, pickle.UnpicklingError, TypeError) as e:
-            cls._logger.error(f"Failed to load or validate latest snapshot: {e}")
+            # cls._logger.error(f"Failed to load or validate latest snapshot: {e}")
             return None
 
     def __str__(self) -> str:

@@ -5,6 +5,7 @@ from enum import Enum
 from typing import Any, Dict, List, Tuple
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 from eppnad.utils.execution_configuration import ExecutionConfiguration
 from eppnad.utils.execution_result import (
@@ -19,6 +20,7 @@ from eppnad.utils.plot_list_collection import PlotCollection, PlotPoint
 def plot(
     profile_execution_directory: str,
     number_of_samples: int,
+    logger,
 ) -> Dict[str, Dict[str, PlotCollection]]:
     """
     Reads experiment results, processes them into plottable collections,
@@ -35,7 +37,7 @@ def plot(
         The fully processed, nested dictionary of results grouped for plotting.
     """
     read_results = ResultsReader(
-        profile_execution_directory
+        logger, profile_execution_directory
     ).read_results_from_directory()
 
     collections_for_plotting = _group_results_for_plotting(read_results)
@@ -167,13 +169,13 @@ def _prepare_and_save_plots(
                             "q3": p.y_values.p75,
                             "whislo": p.y_values.min,
                             "whishi": p.y_values.max,
+                            "label": p.x_value,
                         }
                         for p in plot_points
                         if isinstance(p.y_values, StatisticalValues)
                     ]
 
                     aligned_energy_joules = []
-                    aligned_energy_x_values = []
                     if energy_collections:
                         corresponding_energy_points = energy_collections.get(
                             varying_hp_name, {}
@@ -190,7 +192,6 @@ def _prepare_and_save_plots(
                                 aligned_energy_joules.append(
                                     energy_result.average_joules
                                 )
-                                aligned_energy_x_values.append(x)
 
                     chart_filename, textbox_str = _generate_plot_metadata(
                         template_config, varying_hp_name, number_of_samples
@@ -204,9 +205,7 @@ def _prepare_and_save_plots(
 
                     _create_box_and_line_chart(
                         save_path=save_path,
-                        x_values=x_values,
                         boxplot_stats=boxplot_stats,
-                        energy_x_values=aligned_energy_x_values,
                         energy_y_values=aligned_energy_joules,
                         metric_name=metric_name,
                         varying_hp_name=varying_hp_name,
@@ -216,9 +215,7 @@ def _prepare_and_save_plots(
 
 def _create_box_and_line_chart(
     save_path: str,
-    x_values: List[Any],
     boxplot_stats: List[Dict],
-    energy_x_values: List[Any],
     energy_y_values: List[float],
     metric_name: str,
     varying_hp_name: str,
@@ -230,9 +227,7 @@ def _create_box_and_line_chart(
 
     Args:
         save_path: The full path where the plot image will be saved.
-        x_values: The labels for the x-axis.
         boxplot_stats: A list of statistics for each box plot.
-        energy_x_values: The x-values for the energy data points.
         energy_y_values: The y-values (in Joules) for the energy line plot.
         metric_name: The name of the primary performance metric.
         varying_hp_name: The name of the varying hyperparameter.
@@ -240,26 +235,61 @@ def _create_box_and_line_chart(
     """
     fig, ax1 = plt.subplots(figsize=(12, 8))
 
-    # Primary Y-Axis (Box Plot)
+    x_values = [stat["label"] for stat in boxplot_stats]
+    positions = np.arange(len(x_values))
+
     ax1.set_xlabel(varying_hp_name.replace("_", " ").capitalize())
     ax1.set_ylabel(metric_name.replace("_", " ").capitalize())
-    ax1.bxp(boxplot_stats, positions=x_values, showfliers=False, patch_artist=True)
+
+    box_plot = ax1.bxp(
+        boxplot_stats,
+        positions=positions,
+        showfliers=False,
+        patch_artist=True,
+        widths=0.2,
+    )
+
+    for patch in box_plot["boxes"]:
+        patch.set_facecolor("lightblue")
+    for median in box_plot["medians"]:
+        median.set_color("black")
+        median.set_linewidth(2)
+
+    for i, stat in enumerate(boxplot_stats):
+        ax1.text(
+            positions[i],
+            stat["med"],
+            f'{stat["med"]:.2f}',
+            va="center",
+            ha="center",
+            fontweight="bold",
+            color="navy",
+            fontsize=10,
+            bbox=dict(boxstyle="round,pad=0.3", fc="yellow", ec="k", lw=1, alpha=0.8),
+        )
+
+    ax1.set_xticks(positions)
+    ax1.set_xticklabels(x_values)
     ax1.tick_params(axis="x", rotation=30)
 
-    # Secondary Y-Axis (Line Plot for Energy)
-    if energy_y_values:
-        ax2 = ax1.twinx()
-        ax2.plot(
-            energy_x_values, energy_y_values, "o-", color="tab:red", label="Energy"
-        )
-        ax2.set_ylabel("Average Energy (Joules)", color="tab:red")
-        ax2.tick_params(axis="y", labelcolor="tab:red")
-        ax2.legend(loc="upper right")
+    ax2 = ax1.twinx()
+    ax2.plot(positions, energy_y_values, "o-", color="tab:red", label="Energy")
+    ax2.set_ylabel("Average Energy (Joules)", color="tab:red")
+    ax2.tick_params(axis="y", labelcolor="tab:red")
 
-    # Final Touches
+    min_whisker = min(s["whislo"] for s in boxplot_stats)
+    max_whisker = max(s["whishi"] for s in boxplot_stats)
+    y_margin = (max_whisker - min_whisker) * 0.1  # 10% margin
+    ax1.set_ylim(min_whisker - y_margin, max_whisker + y_margin)
+
+    if energy_y_values:
+        min_energy, max_energy = min(energy_y_values), max(energy_y_values)
+        energy_margin = (max_energy - min_energy) * 0.1
+        ax2.set_ylim(min_energy - energy_margin, max_energy + energy_margin)
+
     title = f"{metric_name.capitalize()} vs. {varying_hp_name.capitalize()}"
-    plt.title(title)
-    ax1.grid(True, linestyle="--", axis="y")
+    plt.title(title, fontsize=16, fontweight="bold")
+    ax1.grid(True, linestyle="--", axis="y", which="both")
     props = dict(boxstyle="round", facecolor="wheat", alpha=0.5)
     ax1.text(
         0.02,
@@ -271,6 +301,7 @@ def _create_box_and_line_chart(
         bbox=props,
     )
 
-    plt.tight_layout()
+    plt.tight_layout(rect=(0.0, 0.0, 0.9, 1.0))
+    fig.legend(loc="upper right", bbox_to_anchor=(0.9, 0.9))
     plt.savefig(save_path)
     plt.close(fig)

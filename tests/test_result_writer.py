@@ -38,15 +38,21 @@ def temp_output_dir(tmp_path):
 
 
 @pytest.fixture
-def results_writer(temp_output_dir):
-    """Provides a ResultsWriter instance initialized with a temp directory."""
-    return ResultsWriter(output_dir=temp_output_dir)
+def mock_logger(mocker):
+    """Creates a mock logger."""
+    return mocker.MagicMock()
 
 
 @pytest.fixture
-def results_reader(temp_output_dir):
+def results_writer(temp_output_dir, mock_logger):
+    """Provides a ResultsWriter instance initialized with a temp directory."""
+    return ResultsWriter(logger=mock_logger, output_dir=temp_output_dir)
+
+
+@pytest.fixture
+def results_reader(temp_output_dir, mock_logger):
     """Provides a ResultsReader instance initialized with a temp directory."""
-    return ResultsReader(output_dir=temp_output_dir)
+    return ResultsReader(logger=mock_logger, output_dir=temp_output_dir)
 
 
 # --- Test Cases for ResultsWriter ---

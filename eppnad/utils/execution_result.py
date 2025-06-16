@@ -50,9 +50,7 @@ class ResultsWriter:
     hyperparameter configuration and the statistical results for that metric.
     """
 
-    _logger = logging.getLogger(__name__)
-
-    def __init__(self, output_dir: str = "./profiler_output/"):
+    def __init__(self, logger, output_dir: str = "./profiler_output/"):
         """
         Initializes the ResultsWriter.
 
@@ -61,6 +59,7 @@ class ResultsWriter:
         """
         # Create a dedicated results directory for the specific model
         self.results_dir = os.path.join(output_dir, "results")
+        self._logger = logger
 
     def append_execution_result(self, result: ExecutionResult):
         """
@@ -148,9 +147,7 @@ class ResultsWriter:
 
 
 class ResultsReader:
-    _logger = logging.getLogger(__name__)
-
-    def __init__(self, output_dir: str = "./profiler_output/"):
+    def __init__(self, logger, output_dir: str = "./profiler_output/"):
         """
         Initializes the ResultsReader.
 
@@ -159,6 +156,7 @@ class ResultsReader:
         """
         # Create a dedicated results directory for the specific model
         self.results_dir = os.path.join(output_dir, "results")
+        self._logger = logger
 
     def read_results_from_directory(self) -> WrittenResults:
         """

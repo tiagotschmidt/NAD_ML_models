@@ -41,15 +41,10 @@ from eppnad.utils.model_execution_config import (
 from eppnad.utils.plot_list_collection import PlotCollection
 from eppnad.utils.runtime_snapshot import RuntimeSnapshot
 
-# --- Module-level logger setup ---
-logger = logging.getLogger(__name__)
-timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-internal_log_filename = f"eppnad_{timestamp}.log"
-logging.basicConfig(
-    filename=internal_log_filename,
-    level=logging.DEBUG,
-    format="%(asctime)s %(levelname)s %(message)s",
-)
+logger = logging.getLogger("eppnad")
+logger.setLevel(logging.DEBUG)
+
+logger.propagate = False
 
 
 def _generate_configurations_list(
@@ -202,13 +197,15 @@ def _execute_profiling_run(
     engine.join()
     energy_monitor.join()
 
+    logger.info(f"Joined ExecutionEngine and EnergyMonitor.")
+
     # --- Generate and return final plots ---
-    final_results = plot(profile_execution_dir, statistical_samples)
+    final_results = plot(profile_execution_dir, statistical_samples, logger)
     return final_results
 
 
 def profile(
-    user_model_function: keras.models.Model,
+    user_model_function,
     user_model_name: str,
     repeated_custom_layer_code: ModelLayerLambda,
     first_custom_layer_code: ModelLayerLambda,
@@ -259,7 +256,22 @@ def profile(
     Returns:
         A dictionary containing the plotted results of the profiling.
     """
-    logging.info("Starting new EPPNAD profiling session.")
+    logger.handlers.clear()
+
+    profile_execution_dir = f"./{user_model_name}/"
+    Path(profile_execution_dir).mkdir(parents=True, exist_ok=True)
+
+    log_path = Path(profile_execution_dir) / "eppnad.log"
+    file_handler = logging.FileHandler(log_path)
+
+    formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+    file_handler.setFormatter(formatter)
+
+    logger.addHandler(file_handler)
+
+    logger.info(
+        f"Starting new EPPNAD profiling session for '{user_model_name}'. Log file at: {log_path}"
+    )
 
     configurations_list = _generate_configurations_list(
         layers, units, epochs, features, sampling_rates, profile_mode
@@ -278,15 +290,12 @@ def profile(
         optimizer,
     )
 
-    profile_execution_dir = f"./{user_model_name}/"
-    Path(profile_execution_dir).mkdir(parents=True, exist_ok=True)
-
     runtime_snapshot = RuntimeSnapshot(
         user_model_name,
         profile_execution_dir,
         configurations_list,
         model_exec_config,
-        current_config_index=0,
+        last_profiled_index=-1,
     )
 
     return _execute_profiling_run(
@@ -348,15 +357,25 @@ def intermittent_profile(
     Returns:
         A dictionary containing the plotted results of the profiling.
     """
-    logging.info("Starting EPPNAD intermittent profiling.")
+    logger.handlers.clear()
 
     profile_execution_dir = f"./{user_model_name}/"
     Path(profile_execution_dir).mkdir(parents=True, exist_ok=True)
 
-    # Attempt to load the most recent snapshot.
+    log_path = Path(profile_execution_dir) / "eppnad.log"
+    file_handler = logging.FileHandler(log_path)
+
+    formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+    file_handler.setFormatter(formatter)
+
+    logger.addHandler(file_handler)
+
+    logger.info(
+        f"Starting new EPPNAD profiling session for '{user_model_name}'. Log file at: {log_path}"
+    )
+
     runtime_snapshot = RuntimeSnapshot.load_latest(profile_execution_dir)
 
-    # If no snapshot is found, create a new one to start from the beginning.
     if runtime_snapshot is None:
         logging.warning("No previous snapshot found. Starting a new session.")
         configurations_list = _generate_configurations_list(
@@ -379,7 +398,7 @@ def intermittent_profile(
             profile_execution_dir,
             configurations_list,
             model_exec_config,
-            current_config_index=0,
+            last_profiled_index=-1,
         )
 
     return _execute_profiling_run(

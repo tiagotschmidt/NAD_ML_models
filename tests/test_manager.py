@@ -182,8 +182,14 @@ class TestProfilingFunctions:
     @patch("eppnad.core.manager.RuntimeSnapshot")
     @patch("eppnad.core.manager.Path")
     @patch("eppnad.core.manager._execute_profiling_run")
+    @patch("eppnad.core.manager.logging.FileHandler")
     def test_profile_creates_new_snapshot_and_runs(
-        self, mock_execute_run, mock_path, mock_snapshot_class, profile_base_args
+        self,
+        mock_file_handler,
+        mock_execute_run,
+        mock_path,
+        mock_snapshot_class,
+        profile_base_args,
     ):
         """
         Verifies that `profile` correctly initializes a new session by:
@@ -191,10 +197,10 @@ class TestProfilingFunctions:
         2. Instantiating a new `RuntimeSnapshot`.
         3. Calling the execution pipeline with the new snapshot.
         """
-        # 1. Call the function under test
+        mock_file_handler.return_value.level = 0
+
         manager.profile(**profile_base_args)
 
-        # 2. Assertions
         mock_path.assert_called_with("./test_model/")
         mock_path.return_value.mkdir.assert_called_once_with(
             parents=True, exist_ok=True
@@ -203,7 +209,7 @@ class TestProfilingFunctions:
         # Check that a new snapshot was created with index 0
         mock_snapshot_class.assert_called_once()
         snapshot_args, snapshot_kwargs = mock_snapshot_class.call_args
-        assert snapshot_kwargs["current_config_index"] == 0
+        assert snapshot_kwargs["last_profiled_index"] == 0
         new_snapshot_instance = mock_snapshot_class.return_value
 
         # Check that the execution pipeline was called with the new snapshot
@@ -217,8 +223,14 @@ class TestProfilingFunctions:
     @patch("eppnad.core.manager.RuntimeSnapshot")
     @patch("eppnad.core.manager.Path")
     @patch("eppnad.core.manager._execute_profiling_run")
+    @patch("eppnad.core.manager.logging.FileHandler")
     def test_intermittent_profile_resumes_from_existing_snapshot(
-        self, mock_execute_run, mock_path, mock_snapshot_class, profile_base_args
+        self,
+        mock_file_handler,
+        mock_execute_run,
+        mock_path,
+        mock_snapshot_class,
+        profile_base_args,
     ):
         """
         Verifies that `intermittent_profile` resumes a session by:
@@ -233,6 +245,8 @@ class TestProfilingFunctions:
         # Instantiate a mock for the constructor to check it's NOT called
         mock_constructor = MagicMock()
         mock_snapshot_class.side_effect = mock_constructor
+
+        mock_file_handler.return_value.level = 0
 
         # 2. Call the function under test
         manager.intermittent_profile(**profile_base_args)
@@ -255,8 +269,14 @@ class TestProfilingFunctions:
     @patch("eppnad.core.manager.RuntimeSnapshot")
     @patch("eppnad.core.manager.Path")
     @patch("eppnad.core.manager._execute_profiling_run")
+    @patch("eppnad.core.manager.logging.FileHandler")
     def test_intermittent_profile_starts_new_run_if_no_snapshot(
-        self, mock_execute_run, mock_path, mock_snapshot_class, profile_base_args
+        self,
+        mock_file_handler,
+        mock_execute_run,
+        mock_path,
+        mock_snapshot_class,
+        profile_base_args,
     ):
         """
         Verifies that `intermittent_profile` starts a new session if `load_latest`
@@ -269,6 +289,8 @@ class TestProfilingFunctions:
         mock_snapshot_class.load_latest.return_value = None
         new_snapshot_instance = mock_snapshot_class.return_value
 
+        mock_file_handler.return_value.level = 0
+
         # 2. Call the function under test
         manager.intermittent_profile(**profile_base_args)
 
@@ -278,7 +300,7 @@ class TestProfilingFunctions:
         # Check that it fell back to creating a new snapshot
         mock_snapshot_class.assert_called_once()
         snapshot_args, snapshot_kwargs = mock_snapshot_class.call_args
-        assert snapshot_kwargs["current_config_index"] == 0
+        assert snapshot_kwargs["last_profiled_index"] == 0
 
         # Check that the pipeline runs with the NEWLY CREATED snapshot
         mock_execute_run.assert_called_once_with(
