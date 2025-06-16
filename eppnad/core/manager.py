@@ -307,7 +307,7 @@ def profile(
 
 
 def intermittent_profile(
-    user_model_function: keras.models.Model,
+    user_model_function,
     user_model_name: str,
     repeated_custom_layer_code: ModelLayerLambda,
     first_custom_layer_code: ModelLayerLambda,
@@ -374,7 +374,7 @@ def intermittent_profile(
         f"Starting new EPPNAD profiling session for '{user_model_name}'. Log file at: {log_path}"
     )
 
-    runtime_snapshot = RuntimeSnapshot.load_latest(profile_execution_dir)
+    runtime_snapshot = RuntimeSnapshot.load_latest(profile_execution_dir, logger)
 
     if runtime_snapshot is None:
         logging.warning("No previous snapshot found. Starting a new session.")

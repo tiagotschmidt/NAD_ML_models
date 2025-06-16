@@ -86,7 +86,7 @@ class RuntimeSnapshot:
             raise
 
     @classmethod
-    def load_latest(cls, runtime_snapshot_dir) -> Optional["RuntimeSnapshot"]:
+    def load_latest(cls, runtime_snapshot_dir, _logger) -> Optional["RuntimeSnapshot"]:
         """
         Finds and loads the most recent snapshot from the predefined directory.
 
@@ -97,9 +97,10 @@ class RuntimeSnapshot:
             An instance of the RuntimeSnapshot class with the loaded state,
             or None if no snapshots are found.
         """
-        # cls._logger.info(f"Searching for latest snapshot in {runtime_snapshot_dir}...")
+        runtime_snapshot_dir = runtime_snapshot_dir + "runtime_snapshot/"
+        _logger.info(f"Searching for latest snapshot in {runtime_snapshot_dir}...")
         if not os.path.isdir(runtime_snapshot_dir):
-            # cls._logger.warning("Snapshot directory not found. Starting a new run.")
+            _logger.warning("Snapshot directory not found. Starting a new run.")
             return None
 
         try:
@@ -110,16 +111,16 @@ class RuntimeSnapshot:
             ]
 
             if not snapshot_files:
-                # cls._logger.warning(
-                #     "No snapshot files found in directory. Starting a new run."
-                # )
+                _logger.warning(
+                    "No snapshot files found in directory. Starting a new run."
+                )
                 return None
 
             # Find the latest file based on the timestamp in the name
             latest_file = max(snapshot_files)
             latest_filepath = os.path.join(runtime_snapshot_dir, latest_file)
 
-            # cls._logger.info(f"Loading latest snapshot: {latest_filepath}")
+            _logger.info(f"Loading latest snapshot: {latest_filepath}")
             with open(latest_filepath, "rb") as f:
                 snapshot = pickle.load(f)
 
@@ -130,7 +131,7 @@ class RuntimeSnapshot:
 
             # Assign the filepath to the loaded object
             snapshot.filepath = latest_filepath
-            # cls._logger.info("Snapshot loaded successfully.")
+            _logger.info("Snapshot loaded successfully.")
             return snapshot
 
         except (IOError, pickle.UnpicklingError, TypeError) as e:
