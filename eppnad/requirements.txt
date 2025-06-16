@@ -396,3 +396,4 @@ zict @ file:///work/perseverance-python-buildout/croot/zict_1698876364831/work
 zipp @ file:///work/perseverance-python-buildout/croot/zipp_1707367835224/work
 zope.interface @ file:///work/perseverance-python-buildout/croot/zope.interface_1698866533743/work
 zstandard @ file:///croot/zstandard_1728569189425/work
+pymongo>=3.9.0

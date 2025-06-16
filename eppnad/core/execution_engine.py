@@ -8,6 +8,7 @@ assembly, performance and energy measurement, and result aggregation.
 
 import gc
 import multiprocessing
+import os
 import statistics
 from logging import Logger
 from multiprocessing.connection import Connection
@@ -49,7 +50,7 @@ class ExecutionEngine(multiprocessing.Process):
 
     def __init__(
         self,
-        user_model_function: keras.models.Model,
+        user_model_function,
         profile_execution_directory: str,
         runtime_snapshot: RuntimeSnapshot,
         logger: Logger,
@@ -77,7 +78,7 @@ class ExecutionEngine(multiprocessing.Process):
         self.start_pipe = start_pipe
         self.signal_energy_pipe = log_signal_pipe
         self.energy_monitor_pipe = energy_monitor_pipe
-        self.results_writer = ResultsWriter(profile_execution_directory)
+        self.results_writer = ResultsWriter(logger, profile_execution_directory)
         self.model_directory = profile_execution_directory + "models/"
         self.execution_timeout_seconds = execution_timeout_seconds
         self.execution_start_time = 0.0
@@ -99,6 +100,9 @@ class ExecutionEngine(multiprocessing.Process):
 
         start_index = self.runtime_snapshot.last_profiled_index + 1
 
+        # for config in self.runtime_snapshot.configuration_list:
+        #     print(config)
+
         for index in range(start_index, len(self.runtime_snapshot.configuration_list)):
             config = self.runtime_snapshot.configuration_list[index]
             if not self._execute_on_platform(index, config):
@@ -109,7 +113,7 @@ class ExecutionEngine(multiprocessing.Process):
                 # Exit the loop early
                 break
 
-        self.signal_energy_pipe.send(ProcessSignal.FinalStop)
+        self.signal_energy_pipe.send((ProcessSignal.FinalStop, None))
         self.logger.info("[EXECUTION-ENGINE] Sent final stop signal to logger.")
 
     # region Platform Execution
@@ -145,33 +149,12 @@ class ExecutionEngine(multiprocessing.Process):
             f"{self.runtime_snapshot.model_name}"
         )
 
-        # 1. Prepare datasets (X_train, y_train, etc.)
         X_train, y_train, X_test, y_test = self._prepare_datasets_from_config(config)
 
-        # 2. Determine model input shape
-        input_shape = (
-            X_train.shape[1] if self.is_config_train(config) else X_test.shape[1]
-        )
-
-        # 3. Assemble or load the Keras model
-        model = self._get_model_for_config(config, input_shape, index)
-
-        # 4. Compile the model
-        model.compile(
-            jit_compile=False,  # type: ignore
-            loss=self.runtime_snapshot.model_execution_configuration.loss_metric_str,
-            optimizer=self.runtime_snapshot.model_execution_configuration.optimizer,
-            metrics=self.runtime_snapshot.model_execution_configuration.performance_metrics_list,
-        )
-
-        model.summary(print_fn=self.logger.info)
-
-        # 5. Run the measurement routine
         processed_results, average_elapsed_time_s, average_energy = (
-            self._measurement_routine(model, config, X_train, y_train, X_test, y_test)
+            self._measurement_routine(config, X_train, y_train, X_test, y_test)
         )
 
-        # 7. Store results and perform cleanup
         self.results_writer.append_execution_result(
             ExecutionResult((config, processed_results))
         )
@@ -180,11 +163,13 @@ class ExecutionEngine(multiprocessing.Process):
                 (config, TimeAndEnergy(average_elapsed_time_s, average_energy))
             )
         )
-        # self.results_list.append((config, processed_results))
+
         self.runtime_snapshot.last_profiled_index = index
         self.runtime_snapshot.save()
         collected = gc.collect()
-        self.logger.info(f"Garbage collector: collected {collected} objects.")
+        self.logger.info(
+            f"[EXECUTION-ENGINE] Garbage collector: collected {collected} objects."
+        )
 
     def is_config_train(self, config):
         return Lifecycle.TRAIN in config.cycle
@@ -194,7 +179,6 @@ class ExecutionEngine(multiprocessing.Process):
     # region Measurement and Results Processing
     def _measurement_routine(
         self,
-        model: keras.Model,
         config: ExecutionConfiguration,
         X_train: np.ndarray,
         y_train: np.ndarray,
@@ -212,17 +196,14 @@ class ExecutionEngine(multiprocessing.Process):
         profiler is invalid (resulting in 0 Joules), it will automatically
         repeat the entire measurement process up to a defined number of times.
         """
-        # --- Retry Mechanism Setup ---
         retry_count = 0
         measurement_successful = False
 
-        # --- Variables to store the final, successful results ---
         processed_metrics: Metrics = {}
         total_elapsed_time_s = 0.0
         avg_energy = 0.0
 
         while not measurement_successful:
-            # --- Reset results for the current attempt ---
             sample_results = []
             total_time_this_attempt = 0.0
 
@@ -230,14 +211,29 @@ class ExecutionEngine(multiprocessing.Process):
                 f"[EXECUTION-ENGINE] Starting measurement attempt {retry_count + 1}..."
             )
 
-            # 1. Signal profiler to start recording energy
             self.signal_energy_pipe.send((ProcessSignal.Start, config.platform))
             self.logger.info("[EXECUTION-ENGINE] Signaled profiler to START.")
 
-            # 2. Run the performance measurement samples
             for i in range(
                 self.runtime_snapshot.model_execution_configuration.number_of_samples
             ):
+                input_shape = (
+                    X_train.shape[1]
+                    if self.is_config_train(config)
+                    else X_test.shape[1]
+                )
+
+                model = self._get_model_for_config(config, input_shape, i)
+
+                model.compile(
+                    jit_compile=False,  # type: ignore
+                    loss=self.runtime_snapshot.model_execution_configuration.loss_metric_str,
+                    optimizer=self.runtime_snapshot.model_execution_configuration.optimizer,
+                    metrics=self.runtime_snapshot.model_execution_configuration.performance_metrics_list,
+                )
+
+                model.summary(print_fn=self.logger.info)
+
                 start_time = time()
                 results = self._execute_sample(
                     model, config, X_train, y_train, X_test, y_test
@@ -249,22 +245,18 @@ class ExecutionEngine(multiprocessing.Process):
                     self._save_model_to_storage(model, config, i)
                 sample_results.append(results)
 
-            # 3. Signal profiler to stop and send back data
             self.signal_energy_pipe.send((ProcessSignal.Stop, config.platform))
             self.logger.info("[EXECUTION-ENGINE] Signaled profiler to STOP.")
             energy_data = self.energy_monitor_pipe.recv()
 
-            # 4. Calculate the average energy for this attempt
             current_avg_energy = self._calculate_average_energy(
                 total_time_this_attempt, energy_data, config.platform
             )
 
-            # 5. Check if the measurement was valid
             if current_avg_energy > 0:
                 self.logger.info(
                     "[EXECUTION-ENGINE] Successfully obtained valid energy measurement."
                 )
-                # Lock in the results from this successful attempt
                 measurement_successful = True
                 avg_energy = current_avg_energy
                 total_elapsed_time_s = total_time_this_attempt
@@ -276,7 +268,6 @@ class ExecutionEngine(multiprocessing.Process):
                     "Invalid energy data received (0 Joules). Retrying measurement."
                 )
 
-        # --- Final Logging and Return ---
         self.logger.info(
             f"[EXECUTION-ENGINE] Total Elapsed time (s): {total_elapsed_time_s}"
         )
@@ -308,10 +299,9 @@ class ExecutionEngine(multiprocessing.Process):
                 epochs=config.epochs,
                 batch_size=self.runtime_snapshot.model_execution_configuration.batch_size,
                 validation_split=0,
-                verbose=1,  # type: ignore
+                verbose=0,  # type: ignore
             )
 
-        # Always evaluate on the test set to get performance metrics
         return model.evaluate(X_test, y_test, verbose=0, return_dict=True)  # type: ignore
 
     def _process_statistical_results(self, sample_results: List[Dict]) -> Metrics:
@@ -333,14 +323,12 @@ class ExecutionEngine(multiprocessing.Process):
         if not sample_results:
             return {}
 
-        # Gather all unique metric keys from all sample runs
         all_metrics = set()
         for result in sample_results:
             all_metrics.update(result.keys())
 
         processed_results = {}
         for metric in all_metrics:
-            # Collect all valid values for the current metric
             metric_values = [
                 res[metric]
                 for res in sample_results
@@ -350,16 +338,13 @@ class ExecutionEngine(multiprocessing.Process):
             if not metric_values:
                 continue
 
-            # Use numpy for efficient and robust statistical calculations
             values_np = np.array(metric_values)
 
-            # For a single sample, stdev is 0 and all values are the same.
             if len(values_np) > 1:
                 std_dev = np.std(values_np)
             else:
                 std_dev = 0
 
-            # Store a rich set of statistics for each metric
             processed_results[metric] = StatisticalValues(
                 mean=np.mean(values_np),  # type: ignore
                 std_dev=std_dev,  # type: ignore
@@ -378,11 +363,9 @@ class ExecutionEngine(multiprocessing.Process):
         """Calculates the average energy consumption in Joules."""
         total_energy_joules = 0
         if platform == Platform.GPU and energy_data:
-            # For GPU, energy_data is a list of power readings in Watts
             avg_power = statistics.mean(energy_data)
             total_energy_joules = avg_power * total_time_s
         elif platform == Platform.CPU and energy_data:
-            # For CPU, energy_data is total energy in micro-Joules
             total_energy_joules = energy_data / 1_000_000
 
         if not total_energy_joules:
@@ -405,19 +388,16 @@ class ExecutionEngine(multiprocessing.Process):
 
         full_dataset = full_dataset.sample(frac=config.sampling_rate)
 
-        # Select the number of features
         num_features = min(config.features, full_dataset.shape[1] - 1)
         features = full_dataset.iloc[:, 0:num_features].values
         target = full_dataset[
             [model_execution_configuration.dataset_target_label]
         ].values
 
-        # Split into training and testing sets
         X_train, X_test, y_train, y_test = train_test_split(
             features, target, test_size=0.2, random_state=42
         )
 
-        # If we are only testing, we don't need the training data
         if self.is_config_test(config):
             X_train, y_train = np.array([]), np.array([])
             X_test, y_test = features, target
@@ -453,21 +433,22 @@ class ExecutionEngine(multiprocessing.Process):
             loaded_model = self._try_load_model_from_storage(config, index)
             if loaded_model:
                 self.logger.info(
-                    "[EXECUTION-ENGINE] Loaded pre-trained model from storage."
+                    f"[EXECUTION-ENGINE] Loaded pre-trained model from storage. Index {index}."
                 )
                 return loaded_model
             self.logger.info(
-                "[EXECUTION-ENGINE] Pre-trained model not found. Building new model."
+                f"[EXECUTION-ENGINE] Pre-trained model not found. Building new model. Index: {index}."
             )
 
+        self.logger.info(f"[EXECUTION-ENGINE] Building new model. Index: {index}")
         return self._build_new_model(config, input_shape)
 
     def _build_new_model(
         self, config: ExecutionConfiguration, input_shape: int
-    ) -> keras.Model:
+    ) -> keras.models.Model:
         """Assembles a new Keras model using the provided layer lambdas."""
         model_config = self.runtime_snapshot.model_execution_configuration
-        model = self.user_model_function  # Start with the base user model
+        model = self.user_model_function()
 
         model_config.first_custom_layer_code(model, config.units, input_shape)
         for _ in range(config.layers - 1):
@@ -485,10 +466,33 @@ class ExecutionEngine(multiprocessing.Process):
             f"{config.layers}_{config.units}_"
             f"{config.epochs}_{config.features}_{config.sampling_rate}_{index}"
         )
-        json_path = self.model_directory + f"/json_models/{base_name}.json"
-        weights_path = (
-            self.model_directory + f"./models/models_weights/{base_name}.weights.h5"
-        )
+
+        try:
+            os.makedirs(self.model_directory, exist_ok=True)
+        except IOError as e:
+            self.logger.error(
+                f"Error creating results directory {self.model_directory}: {e}"
+            )
+            raise
+
+        try:
+            os.makedirs(self.model_directory + f"json_models/", exist_ok=True)
+        except IOError as e:
+            self.logger.error(
+                f"Error creating results directory {self.model_directory}json_models/: {e}"
+            )
+            raise
+
+        try:
+            os.makedirs(self.model_directory + f"models_weights/", exist_ok=True)
+        except IOError as e:
+            self.logger.error(
+                f"Error creating results directory {self.model_directory}models_weights/: {e}"
+            )
+            raise
+
+        json_path = self.model_directory + f"json_models/{base_name}.json"
+        weights_path = self.model_directory + f"./models_weights/{base_name}.weights.h5"
         return json_path, weights_path
 
     def _try_load_model_from_storage(
@@ -521,12 +525,10 @@ class ExecutionEngine(multiprocessing.Process):
         json_path, weights_path = self._get_model_filepaths(config, index)
 
         try:
-            # Save architecture
             model_json = model.to_json()
             with open(json_path, "w") as json_file:
                 json_file.write(model_json)
 
-            # Save weights
             model.save_weights(weights_path)
             self.logger.info(f"[EXECUTION-ENGINE] Saved model to {json_path}")
         except Exception as e:
