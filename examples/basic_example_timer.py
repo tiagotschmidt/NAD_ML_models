@@ -49,7 +49,9 @@ profile_mode = ProfileMode(
 number_of_samples = 10
 batch_size = 8192 * 2
 performance_metrics_list = ["precision", "f1_score", "recall"]
-preprocessed_dataset = pd.read_csv("data/NSL-KDD/preprocessed_binary_dataset.csv")
+preprocessed_dataset = pd.read_csv(
+    "/home/ximit/Documents/NAD_ML_models/data/NSL-KDD/preprocessed_binary_dataset.csv"
+)
 dataset_target_label = "intrusion"
 loss_metric_str = "binary_crossentropy"
 optimizer = "adam"
