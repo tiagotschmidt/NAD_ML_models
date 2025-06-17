@@ -1,4 +1,10 @@
 import os
+
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
+os.environ["GRPC_VERBOSITY"] = "ERROR"
+os.environ["GLOG_minloglevel"] = "2"
+
 import keras
 from keras._tf_keras.keras.models import Sequential
 from keras._tf_keras.keras.layers import Dense
@@ -13,11 +19,6 @@ from eppnad.utils.framework_parameters import (
     RangeParameter,
 )
 
-os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
-os.environ["GRPC_VERBOSITY"] = "ERROR"
-os.environ["GLOG_minloglevel"] = "2"
-
 
 def first_layer(model: keras.models.Model, number_of_units, input_shape):
     model.add(Dense(units=number_of_units, input_dim=input_shape, activation="relu"))
@@ -31,11 +32,11 @@ def final_layer(model: keras.models.Model):
     model.add(Dense(units=1, activation="sigmoid"))
 
 
-numbers_of_layers = RangeParameter([1])
-numbers_of_units = RangeParameter([1, 10, 100])
-numbers_of_epochs = RangeParameter([100])
-numbers_of_features = RangeParameter([93])
-sampling_rates = PercentageRangeParameter([0.1, 0.5, 1])
+numbers_of_layers = RangeParameter([1, 2])
+numbers_of_units = RangeParameter([10, 100])
+numbers_of_epochs = RangeParameter([50, 100])
+numbers_of_features = RangeParameter([13, 93])
+sampling_rates = PercentageRangeParameter([0.1, 1])
 
 # Define profile mode
 profile_mode = ProfileMode(
