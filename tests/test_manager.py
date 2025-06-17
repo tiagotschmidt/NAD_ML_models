@@ -8,8 +8,8 @@ It focuses on two key areas:
     the execution pipeline.
 """
 
+from unittest.mock import ANY, MagicMock, patch
 import pytest
-from unittest.mock import MagicMock, patch
 
 # Assuming the function is in 'eppnad.manager' and utilities are in 'eppnad.utils'
 from eppnad.core import manager
@@ -22,6 +22,12 @@ from eppnad.utils.framework_parameters import (
     PercentageRangeParameter,
 )
 from eppnad.utils.runtime_snapshot import RuntimeSnapshot
+
+
+@pytest.fixture
+def mock_logger(mocker):
+    """Creates a mock logger."""
+    return mocker.MagicMock()
 
 
 class TestConfigurationGeneration:
@@ -209,7 +215,7 @@ class TestProfilingFunctions:
         # Check that a new snapshot was created with index 0
         mock_snapshot_class.assert_called_once()
         snapshot_args, snapshot_kwargs = mock_snapshot_class.call_args
-        assert snapshot_kwargs["last_profiled_index"] == 0
+        assert snapshot_kwargs["last_profiled_index"] == -1
         new_snapshot_instance = mock_snapshot_class.return_value
 
         # Check that the execution pipeline was called with the new snapshot
@@ -231,6 +237,7 @@ class TestProfilingFunctions:
         mock_path,
         mock_snapshot_class,
         profile_base_args,
+        mock_logger,
     ):
         """
         Verifies that `intermittent_profile` resumes a session by:
@@ -253,7 +260,7 @@ class TestProfilingFunctions:
 
         # 3. Assertions
         mock_path.assert_called_with("./test_model/")
-        mock_snapshot_class.load_latest.assert_called_once_with("./test_model/")
+        mock_snapshot_class.load_latest.assert_called_once_with("./test_model/", ANY)
 
         # Ensure a NEW snapshot was NOT created
         mock_constructor.assert_not_called()
@@ -264,6 +271,7 @@ class TestProfilingFunctions:
             "./test_model/",
             mock_loaded_snapshot,
             profile_base_args["statistical_samples"],
+            None,
         )
 
     @patch("eppnad.core.manager.RuntimeSnapshot")
@@ -277,6 +285,7 @@ class TestProfilingFunctions:
         mock_path,
         mock_snapshot_class,
         profile_base_args,
+        mock_logger,
     ):
         """
         Verifies that `intermittent_profile` starts a new session if `load_latest`
@@ -295,12 +304,12 @@ class TestProfilingFunctions:
         manager.intermittent_profile(**profile_base_args)
 
         # 3. Assertions
-        mock_snapshot_class.load_latest.assert_called_once_with("./test_model/")
+        mock_snapshot_class.load_latest.assert_called_once_with("./test_model/", ANY)
 
         # Check that it fell back to creating a new snapshot
         mock_snapshot_class.assert_called_once()
         snapshot_args, snapshot_kwargs = mock_snapshot_class.call_args
-        assert snapshot_kwargs["last_profiled_index"] == 0
+        assert snapshot_kwargs["last_profiled_index"] == -1
 
         # Check that the pipeline runs with the NEWLY CREATED snapshot
         mock_execute_run.assert_called_once_with(
@@ -308,4 +317,5 @@ class TestProfilingFunctions:
             "./test_model/",
             new_snapshot_instance,
             profile_base_args["statistical_samples"],
+            None,
         )

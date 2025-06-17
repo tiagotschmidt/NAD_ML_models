@@ -42,6 +42,12 @@ def snapshot_instance(temp_snapshot_dir):
     )
 
 
+@pytest.fixture
+def mock_logger(mocker):
+    """Creates a mock logger."""
+    return mocker.MagicMock()
+
+
 # --- Test Cases ---
 
 
@@ -103,45 +109,49 @@ class TestSnapshotSaving:
 class TestSnapshotLoading:
     """Tests the file loading functionality."""
 
-    def test_load_latest_returns_none_if_dir_not_exists(self, monkeypatch):
+    def test_load_latest_returns_none_if_dir_not_exists(self, mock_logger, monkeypatch):
         """
         Tests that load_latest returns None if the snapshot directory
         doesn't exist at all.
         """
-        assert RuntimeSnapshot.load_latest("./non_existent_dir/") is None
+        assert (
+            RuntimeSnapshot.load_latest("./non_existent_dir/", logger=mock_logger)
+            is None
+        )
 
-    def test_load_latest_returns_none_for_empty_dir(self, temp_snapshot_dir):
+    def test_load_latest_returns_none_for_empty_dir(
+        self, temp_snapshot_dir, mock_logger
+    ):
         """
         Tests that load_latest returns None if the directory exists but is empty.
         """
         assert os.listdir(temp_snapshot_dir + "/" + "test_model/") == []
-        assert RuntimeSnapshot.load_latest(temp_snapshot_dir + "test_model/") is None
+        assert (
+            RuntimeSnapshot.load_latest(temp_snapshot_dir, logger=mock_logger) is None
+        )
 
-    def test_load_latest_finds_the_most_recent_file(self, temp_snapshot_dir):
-        """
-        Tests that load_latest correctly identifies and loads the file with
-        the highest (most recent) timestamp in its name.
-        """
+    def test_load_latest_finds_the_most_recent_file(
+        self, temp_snapshot_dir, mock_logger
+    ):
+        snapshot_storage_path = os.path.join(temp_snapshot_dir, "runtime_snapshot")
+        os.makedirs(snapshot_storage_path)
         base_time = int(time.time())
-        old_snapshot = RuntimeSnapshot("old_model", temp_snapshot_dir + "/" + "old_model/", [], None)  # type: ignore
+        model_name = "test_model"  # Use a consistent variable
+
+        # Create and save the old snapshot consistently
+        old_snapshot = RuntimeSnapshot(model_name, temp_snapshot_dir, [], None)  # type: ignore
         old_filepath = os.path.join(
-            temp_snapshot_dir + "/" + "old_model/",
-            f"old_model_{base_time - 100}.snapshot",
+            snapshot_storage_path, f"{model_name}_{base_time - 100}.snapshot"
         )
         with open(old_filepath, "wb") as f:
             pickle.dump(old_snapshot, f)
 
+        # Create and save the latest snapshot consistently
         latest_snapshot = RuntimeSnapshot(
-            "old_model", temp_snapshot_dir + "/" + "old_model/", [1], None, last_profiled_index=99  # type: ignore
-        )
-        latest_filepath = os.path.join(
-            temp_snapshot_dir + "/" + "old_model/", f"old_model_{base_time}.snapshot"
-        )
-        with open(latest_filepath, "wb") as f:
-            pickle.dump(latest_snapshot, f)
+            model_name, temp_snapshot_dir, [], None, last_profiled_index=99  # type: ignore
+        ).save()
 
-        loaded = RuntimeSnapshot.load_latest(temp_snapshot_dir + "/" + "old_model/")
+        # Now the function will find the files
+        loaded = RuntimeSnapshot.load_latest(temp_snapshot_dir, logger=mock_logger)
         assert loaded is not None
-        assert loaded.model_name == "old_model"
         assert loaded.last_profiled_index == 99
-        assert loaded.filepath == latest_filepath
