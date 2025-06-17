@@ -21,6 +21,7 @@ def plot(
     profile_execution_directory: str,
     number_of_samples: int,
     logger,
+    expected_results: int,
 ) -> Dict[str, Dict[str, PlotCollection]]:
     """
     Reads experiment results, processes them into plottable collections,
@@ -39,6 +40,11 @@ def plot(
     read_results = ResultsReader(
         logger, profile_execution_directory
     ).read_results_from_directory()
+
+    results_list = read_results["energy"]
+
+    if len(results_list) != expected_results:
+        return {}
 
     collections_for_plotting = _group_results_for_plotting(read_results)
 

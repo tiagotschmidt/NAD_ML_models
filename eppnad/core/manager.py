@@ -202,7 +202,10 @@ def _execute_profiling_run(
     logger.info(f"Joined ExecutionEngine and EnergyMonitor.")
 
     # --- Generate and return final plots ---
-    final_results = plot(profile_execution_dir, statistical_samples, logger)
+    expected_results = len(runtime_snapshot.configuration_list)
+    final_results = plot(
+        profile_execution_dir, statistical_samples, logger, expected_results
+    )
     return final_results
 
 
@@ -223,7 +226,7 @@ def profile(
     statistical_samples: int = 10,
     batch_size: int = 2048,
     performance_metrics: List[str] = ["accuracy", "f1_score", "recall"],
-    dataset: pd.DataFrame = pd.read_csv("data/NSL-KDD/preprocessed_binary_dataset.csv"),
+    dataset: pd.DataFrame = None,  # type: ignore
     target_label: str = "intrusion",
     loss_function: str = "binary_crossentropy",
     optimizer: str = "adam",
@@ -260,6 +263,23 @@ def profile(
         A dictionary containing the plotted results of the profiling.
     """
     logger.handlers.clear()
+
+    if dataset is None:
+        try:
+            script_path = Path(__file__).resolve()
+            project_root = script_path.parent.parent
+            dataset_path = (
+                project_root / "data" / "NSL-KDD" / "preprocessed_binary_dataset.csv"
+            )
+
+            preprocessed_dataset = pd.read_csv(dataset_path)
+            logging.info(f"Loaded dataset from {dataset_path}")
+
+        except FileNotFoundError:
+            logger.error(
+                "Default dataset not found! Please provide a DataFrame to the 'preprocessed_dataset' argument."
+            )
+            raise
 
     profile_execution_dir = f"./{user_model_name}/"
     Path(profile_execution_dir).mkdir(parents=True, exist_ok=True)
@@ -326,7 +346,7 @@ def intermittent_profile(
     statistical_samples: int = 10,
     batch_size: int = 2048,
     performance_metrics: List[str] = ["accuracy", "f1_score", "recall"],
-    dataset: pd.DataFrame = pd.read_csv("data/NSL-KDD/preprocessed_binary_dataset.csv"),
+    dataset: pd.DataFrame = None,  # type: ignore
     target_label: str = "intrusion",
     loss_function: str = "binary_crossentropy",
     optimizer: str = "adam",
@@ -362,6 +382,23 @@ def intermittent_profile(
         A dictionary containing the plotted results of the profiling.
     """
     logger.handlers.clear()
+
+    if dataset is None:
+        try:
+            script_path = Path(__file__).resolve()
+            project_root = script_path.parent.parent
+            dataset_path = (
+                project_root / "data" / "NSL-KDD" / "preprocessed_binary_dataset.csv"
+            )
+
+            preprocessed_dataset = pd.read_csv(dataset_path)
+            logging.info(f"Loaded dataset from {dataset_path}")
+
+        except FileNotFoundError:
+            logger.error(
+                "Default dataset not found! Please provide a DataFrame to the 'preprocessed_dataset' argument."
+            )
+            raise
 
     profile_execution_dir = f"./{user_model_name}/"
     Path(profile_execution_dir).mkdir(parents=True, exist_ok=True)
