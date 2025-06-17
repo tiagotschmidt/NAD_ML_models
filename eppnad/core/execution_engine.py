@@ -14,13 +14,11 @@ from logging import Logger
 from multiprocessing.connection import Connection
 from os import path
 from time import time
-from tracemalloc import start
-from turtle import st
 from typing import Dict, List, Tuple
+from pathlib import Path
 
 import keras
 import numpy as np
-import pandas as pd
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from keras.models import model_from_json
@@ -99,12 +97,22 @@ class ExecutionEngine(multiprocessing.Process):
         self.execution_start_time = time()
 
         start_index = self.runtime_snapshot.last_profiled_index + 1
+        total_configs = len(self.runtime_snapshot.configuration_list)
 
         # for config in self.runtime_snapshot.configuration_list:
         #     print(config)
 
         for index in range(start_index, len(self.runtime_snapshot.configuration_list)):
             config = self.runtime_snapshot.configuration_list[index]
+
+            # --- Progress Bar Start ---
+            progress = (index + 1) / total_configs
+            bar_length = 40
+            block = int(round(bar_length * progress))
+            text = f"\rProgress: [{'#' * block}{'-' * (bar_length - block)}] {index + 1}/{total_configs} ({progress * 100:.2f}%)"
+            print(text)
+            # --- Progress Bar End ---
+
             if not self._execute_on_platform(index, config):
                 self.logger.info(
                     f"[EXECUTION-ENGINE] Execution timeout of {self.execution_timeout_seconds}s reached. "
