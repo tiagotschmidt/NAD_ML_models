@@ -183,8 +183,10 @@ class TestProfilingFunctions:
             "first_custom_layer_code": MagicMock(),
             "final_custom_layer_code": MagicMock(),
             "statistical_samples": 5,
+            "dataset": None,
         }
 
+    @patch("eppnad.core.manager.pd.read_csv")
     @patch("eppnad.core.manager.RuntimeSnapshot")
     @patch("eppnad.core.manager.Path")
     @patch("eppnad.core.manager._execute_profiling_run")
@@ -195,6 +197,7 @@ class TestProfilingFunctions:
         mock_execute_run,
         mock_path,
         mock_snapshot_class,
+        mock_read_csv,
         profile_base_args,
     ):
         """
@@ -226,6 +229,7 @@ class TestProfilingFunctions:
             profile_base_args["statistical_samples"],
         )
 
+    @patch("eppnad.core.manager.pd.read_csv")
     @patch("eppnad.core.manager.RuntimeSnapshot")
     @patch("eppnad.core.manager.Path")
     @patch("eppnad.core.manager._execute_profiling_run")
@@ -236,6 +240,7 @@ class TestProfilingFunctions:
         mock_execute_run,
         mock_path,
         mock_snapshot_class,
+        mock_read_csv,
         profile_base_args,
         mock_logger,
     ):
@@ -274,6 +279,7 @@ class TestProfilingFunctions:
             None,
         )
 
+    @patch("eppnad.core.manager.pd.read_csv")
     @patch("eppnad.core.manager.RuntimeSnapshot")
     @patch("eppnad.core.manager.Path")
     @patch("eppnad.core.manager._execute_profiling_run")
@@ -284,6 +290,7 @@ class TestProfilingFunctions:
         mock_execute_run,
         mock_path,
         mock_snapshot_class,
+        mock_read_csv,
         profile_base_args,
         mock_logger,
     ):
