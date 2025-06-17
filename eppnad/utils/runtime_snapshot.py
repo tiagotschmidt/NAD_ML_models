@@ -86,7 +86,7 @@ class RuntimeSnapshot:
             raise
 
     @classmethod
-    def load_latest(cls, runtime_snapshot_dir, _logger) -> Optional["RuntimeSnapshot"]:
+    def load_latest(cls, runtime_snapshot_dir, logger) -> Optional["RuntimeSnapshot"]:
         """
         Finds and loads the most recent snapshot from the predefined directory.
 
@@ -98,9 +98,9 @@ class RuntimeSnapshot:
             or None if no snapshots are found.
         """
         runtime_snapshot_dir = runtime_snapshot_dir + "runtime_snapshot/"
-        _logger.info(f"Searching for latest snapshot in {runtime_snapshot_dir}...")
+        logger.info(f"Searching for latest snapshot in {runtime_snapshot_dir}...")
         if not os.path.isdir(runtime_snapshot_dir):
-            _logger.warning("Snapshot directory not found. Starting a new run.")
+            logger.warning("Snapshot directory not found. Starting a new run.")
             return None
 
         try:
@@ -111,7 +111,7 @@ class RuntimeSnapshot:
             ]
 
             if not snapshot_files:
-                _logger.warning(
+                logger.warning(
                     "No snapshot files found in directory. Starting a new run."
                 )
                 return None
@@ -120,7 +120,7 @@ class RuntimeSnapshot:
             latest_file = max(snapshot_files)
             latest_filepath = os.path.join(runtime_snapshot_dir, latest_file)
 
-            _logger.info(f"Loading latest snapshot: {latest_filepath}")
+            logger.info(f"Loading latest snapshot: {latest_filepath}")
             with open(latest_filepath, "rb") as f:
                 snapshot = pickle.load(f)
 
@@ -131,11 +131,11 @@ class RuntimeSnapshot:
 
             # Assign the filepath to the loaded object
             snapshot.filepath = latest_filepath
-            _logger.info("Snapshot loaded successfully.")
+            logger.info("Snapshot loaded successfully.")
             return snapshot
 
         except (IOError, pickle.UnpicklingError, TypeError) as e:
-            # cls._logger.error(f"Failed to load or validate latest snapshot: {e}")
+            logger.error(f"Failed to load or validate latest snapshot: {e}")
             return None
 
     def __str__(self) -> str:

@@ -151,6 +151,7 @@ def _execute_profiling_run(
     profile_execution_dir: str,
     runtime_snapshot: RuntimeSnapshot,
     statistical_samples: int,
+    execution_timeout_seconds: int | None = None,
 ) -> Dict[str, Dict[str, PlotCollection]]:
     """
     Initializes and runs the core execution and monitoring processes.
@@ -178,6 +179,7 @@ def _execute_profiling_run(
         start_pipe_engine_side,
         engine_side_signal_pipe,
         engine_side_result_pipe,
+        execution_timeout_seconds,
     )
 
     energy_monitor = EnergyMonitor(
@@ -225,6 +227,7 @@ def profile(
     target_label: str = "intrusion",
     loss_function: str = "binary_crossentropy",
     optimizer: str = "adam",
+    execution_timeout_seconds: int | None = None,
 ) -> Dict[str, Dict[str, PlotCollection]]:
     """
     Starts a new EPPNAD profiling session from scratch.
@@ -327,6 +330,7 @@ def intermittent_profile(
     target_label: str = "intrusion",
     loss_function: str = "binary_crossentropy",
     optimizer: str = "adam",
+    execution_timeout_seconds: int | None = None,
 ) -> Dict[str, Dict[str, PlotCollection]]:
     """
     Resumes a previously started EPPNAD profiling session.
@@ -406,4 +410,5 @@ def intermittent_profile(
         profile_execution_dir,
         runtime_snapshot,
         statistical_samples,
+        execution_timeout_seconds,
     )
