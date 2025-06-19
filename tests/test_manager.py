@@ -261,7 +261,7 @@ class TestProfilingFunctions:
         mock_file_handler.return_value.level = 0
 
         # 2. Call the function under test
-        manager.intermittent_profile(**profile_base_args)
+        manager._intermittent_profile(**profile_base_args)
 
         # 3. Assertions
         mock_path.assert_called_with("./test_model/")
@@ -308,7 +308,7 @@ class TestProfilingFunctions:
         mock_file_handler.return_value.level = 0
 
         # 2. Call the function under test
-        manager.intermittent_profile(**profile_base_args)
+        manager._intermittent_profile(**profile_base_args)
 
         # 3. Assertions
         mock_snapshot_class.load_latest.assert_called_once_with("./test_model/", ANY)

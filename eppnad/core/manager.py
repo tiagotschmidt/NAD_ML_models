@@ -352,6 +352,61 @@ def intermittent_profile(
     optimizer: str = "adam",
     execution_timeout_seconds: int | None = None,
 ) -> Dict[str, Dict[str, PlotCollection]]:
+    if execution_timeout_seconds is None:
+        execution_timeout_seconds = 60 * 60 * 24 * 30
+
+    time_slice = 60 * 60  ### One hour
+    result = {}
+    total_calls = int(execution_timeout_seconds / time_slice)
+    for i in range(0, total_calls + 1):
+        result = _intermittent_profile(
+            user_model_function,
+            user_model_name,
+            repeated_custom_layer_code,
+            first_custom_layer_code,
+            final_custom_layer_code,
+            layers,
+            units,
+            epochs,
+            features,
+            sampling_rates,
+            profile_mode,
+            statistical_samples,
+            batch_size,
+            performance_metrics,
+            dataset,
+            target_label,
+            loss_function,
+            optimizer,
+            time_slice,
+        )
+
+    return result
+
+
+def _intermittent_profile(
+    user_model_function,
+    user_model_name: str,
+    repeated_custom_layer_code: ModelLayerLambda,
+    first_custom_layer_code: ModelLayerLambda,
+    final_custom_layer_code: ModelFinalLayerLambda,
+    layers: RangeParameter = RangeParameter([100, 200, 300]),
+    units: RangeParameter = RangeParameter([10, 50, 100]),
+    epochs: RangeParameter = RangeParameter([50, 100, 150]),
+    features: RangeParameter = RangeParameter([13, 53, 93]),
+    sampling_rates: PercentageRangeParameter = PercentageRangeParameter([0.1, 0.5, 1]),
+    profile_mode: ProfileMode = ProfileMode(
+        Lifecycle.TRAIN_AND_TEST, Platform.GPU, Platform.CPU
+    ),
+    statistical_samples: int = 10,
+    batch_size: int = 2048,
+    performance_metrics: List[str] = ["accuracy", "f1_score", "recall"],
+    dataset: pd.DataFrame = None,  # type: ignore
+    target_label: str = "intrusion",
+    loss_function: str = "binary_crossentropy",
+    optimizer: str = "adam",
+    execution_timeout_seconds: int | None = None,
+) -> Dict[str, Dict[str, PlotCollection]]:
     """
     Resumes a previously started EPPNAD profiling session.
 
