@@ -355,10 +355,11 @@ def intermittent_profile(
     if execution_timeout_seconds is None:
         execution_timeout_seconds = 60 * 60 * 24 * 30
 
-    time_slice = 60 * 60  ### One hour
+    time_slice_seconds = 60 * 60  ### One hour
     result = {}
-    total_calls = int(execution_timeout_seconds / time_slice)
-    for i in range(0, total_calls + 1):
+    repetitions = execution_timeout_seconds // time_slice_seconds
+    extra_time = execution_timeout_seconds % time_slice_seconds
+    for i in range(0, repetitions):
         result = _intermittent_profile(
             user_model_function,
             user_model_name,
@@ -378,7 +379,30 @@ def intermittent_profile(
             target_label,
             loss_function,
             optimizer,
-            time_slice,
+            time_slice_seconds,
+        )
+
+    if extra_time != 0:
+        result = _intermittent_profile(
+            user_model_function,
+            user_model_name,
+            repeated_custom_layer_code,
+            first_custom_layer_code,
+            final_custom_layer_code,
+            layers,
+            units,
+            epochs,
+            features,
+            sampling_rates,
+            profile_mode,
+            statistical_samples,
+            batch_size,
+            performance_metrics,
+            dataset,
+            target_label,
+            loss_function,
+            optimizer,
+            extra_time,
         )
 
     return result
