@@ -459,9 +459,9 @@ class ExecutionEngine(multiprocessing.Process):
         model = self.user_model_function()
 
         model_config.first_custom_layer_code(model, config.units, input_shape)
-        for _ in range(config.layers - 1):
+        for _ in range(config.layers):
             model_config.repeated_custom_layer_code(model, config.units, input_shape)
-        model_config.final_custom_layer_code(model)
+        model_config.final_custom_layer_code(model, config.units)
 
         return model
 

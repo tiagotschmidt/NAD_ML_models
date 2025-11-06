@@ -103,7 +103,7 @@ def repeated_layer(model: keras.models.Model, number_of_units, input_shape):
     model.add(Dense(units=number_of_units, input_dim=input_shape, activation="relu"))
 
 
-def final_layer(model: keras.models.Model):
+def final_layer(model: keras.models.Model, number_of_units):
     model.add(Dense(units=1, activation="sigmoid"))
 
 
