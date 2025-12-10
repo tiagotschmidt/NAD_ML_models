@@ -1,4 +1,6 @@
+import logging
 import multiprocessing
+from pathlib import Path
 import subprocess
 import time
 from logging import Logger
@@ -23,6 +25,7 @@ class EnergyMonitor(multiprocessing.Process):
         signal_pipe: Connection,
         result_pipe: Connection,
         logger: Logger,
+        log_dir: str,  # <--- ADD THIS ARGUMENT
     ):
         """
         Initializes the EnergyProfiler process.
@@ -36,6 +39,7 @@ class EnergyMonitor(multiprocessing.Process):
         self.signal_pipe = signal_pipe
         self.result_pipe = result_pipe
         self.logger = logger
+        self.log_dir = log_dir
 
     def run(self):
         """
@@ -44,6 +48,14 @@ class EnergyMonitor(multiprocessing.Process):
         It waits for a signal and dispatches to the appropriate monitoring
         function. The loop terminates upon receiving a `FinalStop` signal.
         """
+        if not self.logger.handlers:
+            log_path = Path(self.log_dir) / "eppnad.log"
+
+            fh = logging.FileHandler(log_path)
+            fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+            self.logger.addHandler(fh)
+            self.logger.setLevel(logging.DEBUG)
+
         self.logger.info(
             "[PROFILER] EnergyProfiler process started and waiting for signals."
         )

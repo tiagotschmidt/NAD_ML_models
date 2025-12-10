@@ -16,6 +16,7 @@ from os import path
 from time import time
 from typing import Dict, List, Tuple
 from pathlib import Path
+import logging
 
 import keras
 import numpy as np
@@ -90,6 +91,17 @@ class ExecutionEngine(multiprocessing.Process):
         set, it will stop execution when the time is up. Finally, it sends
         the collected results back to the main process.
         """
+        if not self.logger.handlers:
+            # Reconstruct path to 'eppnad.log' using the model directory
+            # self.model_directory is ".../ModelName/models/"
+            # We want ".../ModelName/eppnad.log"
+            log_path = Path(self.model_directory).parent / "eppnad.log"
+
+            fh = logging.FileHandler(log_path)
+            fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+            self.logger.addHandler(fh)
+            self.logger.setLevel(logging.DEBUG)
+
         self.start_pipe.recv()  # Wait for the start signal from the manager
         self.logger.info(
             "[EXECUTION-ENGINE] Start signal received. Beginning profiling."

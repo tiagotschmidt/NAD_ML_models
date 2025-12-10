@@ -186,6 +186,7 @@ def _execute_profiling_run(
         log_side_signal_pipe,
         log_side_result_pipe,
         logger,
+        profile_execution_dir,
     )
 
     # --- Start processes ---
