@@ -1,3 +1,4 @@
+import multiprocessing
 import os
 
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
@@ -7,7 +8,7 @@ os.environ["GLOG_minloglevel"] = "2"
 
 import keras
 from keras._tf_keras.keras.models import Sequential
-from keras._tf_keras.keras.layers import Dense
+from keras._tf_keras.keras.layers import Dense, Input
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 import pandas as pd
 import numpy as np
@@ -96,6 +97,7 @@ def preprocess_ids_2018(dataset_list):
 
 
 def first_layer(model: keras.models.Model, number_of_units, input_shape):
+    model.add(Input(shape=(input_shape,)))
     model.add(Dense(units=number_of_units, input_dim=input_shape, activation="relu"))
 
 
@@ -107,57 +109,66 @@ def final_layer(model: keras.models.Model, number_of_units):
     model.add(Dense(units=1, activation="sigmoid"))
 
 
-numbers_of_layers = RangeParameter([1])
-numbers_of_units = RangeParameter([1, 2])
-numbers_of_epochs = RangeParameter([10])
-numbers_of_features = RangeParameter([13])
-sampling_rates = PercentageRangeParameter([0.1])
+if __name__ == "__main__":
+    multiprocessing.set_start_method("spawn", force=True)
 
-# Define profile mode
-profile_mode = ProfileMode(
-    Lifecycle.TRAIN_AND_TEST,
-    train_platform=Platform.GPU,
-    test_platform=Platform.CPU,
-)
+    numbers_of_layers = RangeParameter([2, 4])
+    numbers_of_units = RangeParameter([32, 64, 128])
+    numbers_of_epochs = RangeParameter([10])
+    numbers_of_features = RangeParameter([39, 78])
+    sampling_rates = PercentageRangeParameter([0.1, 1])
 
-# Define other parameters
-number_of_samples = 2
-batch_size = 8192 * 2
-performance_metrics_list = ["precision", "f1_score", "recall"]
+    # numbers_of_layers = RangeParameter([1])
+    # numbers_of_units = RangeParameter([1, 2])
+    # numbers_of_epochs = RangeParameter([10])
+    # numbers_of_features = RangeParameter([13])
+    # sampling_rates = PercentageRangeParameter([0.1])
 
-dataset_list = [
-    pd.read_csv("data/CSE-CIC-IDS2018/02-14-2018.csv"),
-    # pd.read_csv("data/CSE-CIC-IDS2018/02-15-2018.csv"),
-    # pd.read_csv("data/CSE-CIC-IDS2018/02-16-2018.csv"),
-    # pd.read_csv("data/CSE-CIC-IDS2018/02-20-2018.csv"),
-    # pd.read_csv("data/CSE-CIC-IDS2018/02-21-2018.csv"),
-    # pd.read_csv("data/CSE-CIC-IDS2018/02-22-2018.csv"),
-    # pd.read_csv("data/CSE-CIC-IDS2018/02-23-2018.csv"),  # TODO: Add remaining days
-]
+    # Define profile mode
+    profile_mode = ProfileMode(
+        Lifecycle.TRAIN_AND_TEST,
+        train_platform=Platform.GPU,
+        test_platform=Platform.CPU,
+    )
 
-preprocessed_dataset = preprocess_ids_2018(dataset_list)
+    # Define other parameters
+    number_of_samples = 10
+    batch_size = 8192 * 2
+    performance_metrics_list = ["precision", "f1_score", "recall"]
 
-dataset_target_label = "Label"
-loss_metric_str = "binary_crossentropy"
-optimizer = "adam"
+    dataset_list = [
+        pd.read_csv("data/CSE-CIC-IDS2018/02-14-2018.csv"),
+        # pd.read_csv("data/CSE-CIC-IDS2018/02-15-2018.csv"),
+        # pd.read_csv("data/CSE-CIC-IDS2018/02-16-2018.csv"),
+        # pd.read_csv("data/CSE-CIC-IDS2018/02-20-2018.csv"),
+        # pd.read_csv("data/CSE-CIC-IDS2018/02-21-2018.csv"),
+        # pd.read_csv("data/CSE-CIC-IDS2018/02-22-2018.csv"),
+        # pd.read_csv("data/CSE-CIC-IDS2018/02-23-2018.csv"),  # TODO: Add remaining days
+    ]
 
-profile(
-    Sequential,
-    "MLP_neurons_AWS_2018",
-    first_custom_layer_code=first_layer,
-    repeated_custom_layer_code=repeated_layer,
-    final_custom_layer_code=final_layer,
-    layers=numbers_of_layers,
-    units=numbers_of_units,
-    epochs=numbers_of_epochs,
-    features=numbers_of_features,
-    profile_mode=profile_mode,
-    statistical_samples=number_of_samples,
-    batch_size=batch_size,
-    sampling_rates=sampling_rates,
-    performance_metrics=performance_metrics_list,
-    dataset=preprocessed_dataset,
-    target_label=dataset_target_label,
-    loss_function=loss_metric_str,
-    optimizer=optimizer,
-)
+    preprocessed_dataset = preprocess_ids_2018(dataset_list)
+
+    dataset_target_label = "Label"
+    loss_metric_str = "binary_crossentropy"
+    optimizer = "adam"
+
+    profile(
+        Sequential,
+        "MLP_neurons_AWS_2018",
+        first_custom_layer_code=first_layer,
+        repeated_custom_layer_code=repeated_layer,
+        final_custom_layer_code=final_layer,
+        layers=numbers_of_layers,
+        units=numbers_of_units,
+        epochs=numbers_of_epochs,
+        features=numbers_of_features,
+        profile_mode=profile_mode,
+        statistical_samples=number_of_samples,
+        batch_size=batch_size,
+        sampling_rates=sampling_rates,
+        performance_metrics=performance_metrics_list,
+        dataset=preprocessed_dataset,
+        target_label=dataset_target_label,
+        loss_function=loss_metric_str,
+        optimizer=optimizer,
+    )
